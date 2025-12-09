@@ -1,0 +1,160 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+.flattened-pom.xml
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+.metadata
+tmp/
+*.tmp
+*.bak
+local.properties
+.loadpath
+.recommenders
+
+# IntelliJ IDEA
+.idea/
+*.ipr
+*.iml
+*.iws
+out/
+.idea_modules/
+
+# NetBeans
+nb-configuration.xml
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# Visual Studio Code
+.vscode/
+.factorypath
+*.code-workspace
+
+# OSX
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.cache
+*.pid
+*.seed
+*.pid.lock
+
+# OS generated files
+.Spotlight-V100
+.Trashes
+
+# Build and compiled files
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+
+# Package files
+node_modules/
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Quarkus
+.quarkus/
+.quarkus-cli/
+/.quarkus/cli/plugins/
+
+# Docker
+.dockerignore
+
+# TLS Certificates
+.certs/
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Test coverage
+coverage/
+*.coverage
+.nyc_output/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# Patch files
+*.orig
+*.rej
+*.patch
+
+# Generated documentation
+/docs/generated/
+/javadoc/
