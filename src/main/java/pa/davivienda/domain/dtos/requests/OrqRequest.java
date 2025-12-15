@@ -6,15 +6,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+/**
+ * DTO REST para el body del request.
+ * DataHeader ahora viene en HTTP headers, no en el body.
+ */
 public class OrqRequest {
 
     @JsonProperty("NombredelServicio")
     @NotBlank(message = "NombredelServicio es obligatorio")
     private String nombredelServicio;
-
-    @Valid
-    @NotNull(message = "DataHeader es obligatorio")
-    private DataHeader dataHeader;
 
     @Valid
     @NotNull(message = "Data es obligatorio")
@@ -28,14 +28,6 @@ public class OrqRequest {
 
     public void setNombredelServicio(String nombredelServicio) {
         this.nombredelServicio = nombredelServicio;
-    }
-
-    public DataHeader getDataHeader() {
-        return dataHeader;
-    }
-
-    public void setDataHeader(DataHeader dataHeader) {
-        this.dataHeader = dataHeader;
     }
 
     public Data getData() {
