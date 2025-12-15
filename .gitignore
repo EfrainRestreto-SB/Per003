@@ -11,6 +11,17 @@ buildNumber.properties
 .mvn/wrapper/maven-wrapper.jar
 .flattened-pom.xml
 
+# MapStruct generated files
+target/generated-sources/annotations/
+target/generated-test-sources/test-annotations/
+
+# Quarkus
+.quarkus/
+.quarkus-cli/
+/.quarkus/cli/plugins/
+quarkus.log
+*.log
+
 # Eclipse
 .project
 .classpath
@@ -20,6 +31,12 @@ bin/
 tmp/
 *.tmp
 *.bak
+shelf/
+workspace.xml
+tasks.xml
+usage.statistics.xml
+dictionaries/
+sonarlint/
 local.properties
 .loadpath
 .recommenders
@@ -38,6 +55,9 @@ nbproject/private/
 nbbuild/
 dist/
 nbdist/
+.settings/
+.classpath
+.project
 .nb-gradle/
 
 # Visual Studio Code
@@ -80,6 +100,8 @@ $RECYCLE.BIN/
 *.elc
 
 # Logs
+quarkus.log
+application.log
 *.log
 logs/
 *.log.*
@@ -87,6 +109,9 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+~$*
+*.swp
+*.swo
 *.bak
 *.cache
 *.pid
@@ -128,6 +153,8 @@ build/
 
 # TLS Certificates
 .certs/
+*.keystore
+*.truststore
 *.pem
 *.key
 *.crt
@@ -151,6 +178,35 @@ coverage/
 *~
 
 # Patch files
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+~$*.xlsm
+
+# Lombok generated files
+.apt_generated/
+.apt_generated_tests/
+
+# SonarQube
+.sonar/
+.scannerwork/
+
+# JRebel
+rebel.xml
+rebel-remote.xml
+
+# JProfiler
+*.jprofile
+
+# Code analysis
+.qodana/
+.codeclimate.yml
+
+# Spring Boot
+spring-boot-devtools.properties
+application-local.yml
+application-local.properties
 *.orig
 *.rej
 *.patch
