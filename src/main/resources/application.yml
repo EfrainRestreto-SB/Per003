@@ -1,25 +1,39 @@
 quarkus:
   datasource:
-    db-kind: db2
-    username: db2inst1
-    password: db2inst1
+    db-kind: other                    # DB2 no soportado nativamente
+    db-version: 7.4.0                 # Versión real AS/400
+    username: DAADATAPER
+    password: PANAMA1
     jdbc:
-      url: jdbc:db2://localhost:50000/TESTDB
-      driver: com.ibm.db2.jcc.DB2Driver
-      min-size: 2
-      max-size: 10
-      acquisition-timeout: 10s
+      driver: com.ibm.as400.access.AS400JDBCDriver
+      url: jdbc:as400://10.246.17.67;databaseName=HOWARD1;libraries=DAPCYFILES,PRESURLIB;naming=sql;errors=full;ccsid=1208;prompt=false;loginTimeout=60;blockSize=512
+      min-size: 2                        # Mínimo 2 conexiones
+      max-size: 10                       # Máximo 10 conexiones
+      acquisition-timeout: 60
+      transaction-isolation-level: read-uncommitted
+      
+      # 🔑 CLAVE para jt400
+      additional-jdbc-properties:
+        autocommit: true                 # Autocommit ON
+        connectionSharing: false
+        holdability: close
 
   hibernate-orm:
+    packages: org.acme.domain.entities
     dialect: org.hibernate.dialect.DB2Dialect
+    database:
+      version-check:
+        enabled: false                   # Deshabilitar validación versión
     log:
       sql: true
       bind-parameters: true
-    format-sql: true
+    schema-management:
+      strategy: none                     # NO modificar DB
+    jdbc:
+      statement-batch-size: 0            # Batch OFF (jt400 sensible)
 
   log:
-    level: INFO  # Nivel global
+    level: INFO
     console:
       enable: true
       format: "%d{HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n"
-      json: true

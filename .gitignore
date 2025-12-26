@@ -4,12 +4,14 @@ pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
 pom.xml.next
+pom.xml.bak
 release.properties
 dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 .flattened-pom.xml
+.mvn/local-settings.xml
 
 # MapStruct generated files
 target/generated-sources/annotations/
@@ -21,6 +23,15 @@ target/generated-test-sources/test-annotations/
 /.quarkus/cli/plugins/
 quarkus.log
 *.log
+.qute/
+application-*.yml
+application-*.properties
+
+# Dev configuration (no subir configuraciones locales de desarrollo)
+*-local.yml
+*-local.properties
+application-dev.yml
+application-dev.properties
 
 # Eclipse
 .project
@@ -65,6 +76,22 @@ nbdist/
 .factorypath
 *.code-workspace
 
+# GitHub Copilot y herramientas de IA
+.copilot/
+.github-copilot/
+copilot-logs/
+*.copilot.log
+.copilot-workspace/
+.ai-logs/
+.assistant-logs/
+*.ai.log
+*.llm.log
+.cursor/
+.cursor-tutor/
+.tabnine/
+.codeium/
+*.telemetry.log
+
 # OSX
 .DS_Store
 .AppleDouble
@@ -80,6 +107,13 @@ ehthumbs_vista.db
 [Dd]esktop.ini
 $RECYCLE.BIN/
 *.lnk
+*.msi
+*.msix
+*.msm
+*.msp
+~*.tmp
+~*.TMP
+*~lock*
 
 # Linux
 *~
@@ -103,8 +137,19 @@ $RECYCLE.BIN/
 quarkus.log
 application.log
 *.log
-logs/
 *.log.*
+logs/
+log/
+*.out
+*.err
+
+# Archivos de debug y profiling
+hs_err_pid*.log
+replay_pid*.log
+javacore.*.txt
+heapdump*.hprof
+*.hprof
+*.prof
 
 # Temporary files
 *.tmp
@@ -117,6 +162,15 @@ logs/
 *.pid
 *.seed
 *.pid.lock
+*.lock
+.~lock*
+*_LOCAL_*
+*_REMOTE_*
+*_BACKUP_*
+*_BASE_*
+*.orig
+*.rej
+*.patch
 
 # OS generated files
 .Spotlight-V100
@@ -207,6 +261,23 @@ rebel-remote.xml
 spring-boot-devtools.properties
 application-local.yml
 application-local.properties
+
+###############################################################################
+# MEJORES PRÁCTICAS DE SEGURIDAD
+###############################################################################
+# ⚠️ IMPORTANTE: NUNCA subir al repositorio:
+# - Contraseñas, tokens, API keys
+# - Certificados privados (.key, .p12, .jks con claves privadas)
+# - Configuraciones con datos de producción
+# - Dumps de base de datos con información real
+# - Logs con información sensible de clientes
+#
+# ✅ SI subir al repositorio:
+# - Archivos .env.example o .env.template (sin valores reales)
+# - Certificados públicos (.crt, .pem públicos)
+# - Configuraciones de ejemplo/template
+# - Scripts de inicialización de BD (sin datos reales)
+###############################################################################
 *.orig
 *.rej
 *.patch
@@ -214,3 +285,63 @@ application-local.properties
 # Generated documentation
 /docs/generated/
 /javadoc/
+
+# Archivos de respaldo de editores
+*.autosave
+*~$*
+.#*
+.*.kate-swp
+.*.sw?
+
+# Archivos de Office temporales
+~$*.doc*
+~$*.ppt*
+~$*.xls*
+*.xlk
+
+# Archivos de red/compartidos
+.nfs*
+.afp*
+.smb*
+
+# Archivos personales y notas
+TODO_PERSONAL.md
+NOTES_PERSONAL.md
+SCRATCH.md
+CHEATSHEET_PERSONAL.md
+
+# Archivos de datos sensibles (NUNCA subir)
+*password*
+*secret*
+*credential*
+*.key.enc
+*.keystore
+*.truststore
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Dumps y exportaciones
+*.dump
+*.sql
+*.backup
+*.export
+*.csv.bak
+
+# Archivos grandes/binarios innecesarios
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.iso
+*.dmg
+
+# Cache de herramientas
+.cache/
+*.cache/
+.npm/
+.yarn/
+.pnpm-store/
+*.docx
+*.pdf
