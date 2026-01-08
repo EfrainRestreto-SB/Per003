@@ -16,6 +16,7 @@ public class OrqRequest {
     @NotBlank(message = "NombredelServicio es obligatorio")
     private String nombredelServicio;
 
+    @JsonProperty("Data")
     @Valid
     @NotNull(message = "Data es obligatorio")
     private Data data;

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ErrorResponse {
+    private String caracterAceptacion;
     private int codMsgRespuesta;
     private String msgRespuesta;
     private String idTransaccion;
@@ -13,6 +14,7 @@ public class ErrorResponse {
 
     public static ErrorResponse fromMessage(int code, String message, String idTransaccion) {
         ErrorResponse e = new ErrorResponse();
+        e.setCaracterAceptacion("M");
         e.setCodMsgRespuesta(code);
         e.setMsgRespuesta(message);
         e.setIdTransaccion(idTransaccion);
@@ -21,6 +23,7 @@ public class ErrorResponse {
 
     public static ErrorResponse fromValidation(Throwable ex, String idTransaccion) {
         ErrorResponse e = new ErrorResponse();
+        e.setCaracterAceptacion("M");
         e.setCodMsgRespuesta(400);
         e.setMsgRespuesta("Error de validación");
         e.setIdTransaccion(idTransaccion);
@@ -29,6 +32,9 @@ public class ErrorResponse {
     }
 
     // getters / setters
+    public String getCaracterAceptacion() { return caracterAceptacion; }
+    public void setCaracterAceptacion(String caracterAceptacion) { this.caracterAceptacion = caracterAceptacion; }
+
     public int getCodMsgRespuesta() { return codMsgRespuesta; }
     public void setCodMsgRespuesta(int codMsgRespuesta) { this.codMsgRespuesta = codMsgRespuesta; }
 
