@@ -223,6 +223,10 @@ public class OrqCompensacionResource {
             LOG.warn("Petición incorrecta - idTransaccion={}", correlationId, iae);
             ErrorResponse err = ErrorResponse.fromMessage(400, iae.getMessage(), correlationId);
             return Response.status(Response.Status.BAD_REQUEST).entity(err).build();
+        } catch (pa.davivienda.domain.exceptions.InvalidChannelConceptException icce) {
+            // Re-lanzar para que el InvalidChannelConceptExceptionMapper la maneje
+            LOG.debug("Delegando InvalidChannelConceptException al mapper - idTransaccion={}", correlationId);
+            throw icce;
         } catch (Exception ex) {
             LOG.error("Error interno - idTransaccion={}", correlationId, ex);
             ErrorResponse err = ErrorResponse.fromMessage(500, "Error interno del servicio", correlationId);

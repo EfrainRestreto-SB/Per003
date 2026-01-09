@@ -13,6 +13,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import pa.davivienda.application.commands.TransferCommand;
 import pa.davivienda.application.results.TransferResult;
+import pa.davivienda.application.validators.ChannelConceptValidator;
 import pa.davivienda.domain.entities.AuditLog;
 import pa.davivienda.domain.enums.AuditMessageType;
 import pa.davivienda.domain.interfaces.usecases.OrqCompensacionService;
@@ -54,6 +55,9 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
     Per001ServicePort per001Service;
     
     @Inject
+    ChannelConceptValidator channelConceptValidator;
+    
+    @Inject
     MeterRegistry meterRegistry;
     
     /**
@@ -82,10 +86,14 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
     @Timed(value = "transfer.time", description = "Tiempo de ejecución de transferencias", percentiles = {0.5, 0.95, 0.99})
     @Counted(value = "transfer.total", description = "Contador total de transferencias")
     public TransferResult transfer(TransferCommand command) {
-        LOG.info("Ejecutando transferencia - idTransaccion={}, concepto={}, monto={}", 
-                 command.getIdTransaccion(), 
+        LOG.info("Ejecutando transferencia - idTransaccion={}, canal={}, concepto={}, monto={}", 
+                 command.getIdTransaccion(),
+                 command.getCanal(),
                  command.getCodTipoConcepto(), 
                  command.getValMonto());
+        
+        // VALIDACIÓN: Solo permitir canal 81 + COBPER en desarrollo
+        channelConceptValidator.validate(command);
         
         // 1. AUDITORÍA ENTRADA - Registrar request recibido
         auditPort.logAsync(AuditLog.builder()
