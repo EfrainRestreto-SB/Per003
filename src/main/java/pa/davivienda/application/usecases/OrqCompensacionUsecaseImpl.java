@@ -14,6 +14,7 @@ import pa.davivienda.domain.entities.AuditLog;
 import pa.davivienda.domain.enums.AuditMessageType;
 import pa.davivienda.domain.interfaces.usecases.OrqCompensacionService;
 import pa.davivienda.domain.ports.output.AuditPort;
+import pa.davivienda.domain.ports.output.Per001ServicePort;
 import pa.davivienda.transversal.utils.AuditUtils;
 
 /**
@@ -45,6 +46,9 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
     
     @Inject
     AuditPort auditPort;
+    
+    @Inject
+    Per001ServicePort per001Service;
     
     /**
      * Ejecuta una operación de transferencia/compensación.
@@ -89,28 +93,43 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
         TransferResult result = null;
         
         try {
-            // TODO: Implementar lógica de negocio real
-            // Por ahora, devolvemos un resultado simulado
-            result = new TransferResult();
+            // Determinar servicio destino según el concepto
+            String concepto = command.getCodTipoConcepto();
             
-            // Header
-            result.setNombreOperacion(command.getNombreOperacion());
-            result.setTotal(command.getTotal());
-            result.setCaracterAceptacion("B"); // B = OK
-            result.setUltimoMensaje((short) 0);
-            result.setIdTransaccion(command.getIdTransaccion());
-            result.setCodMsgRespuesta(0);
-            result.setMsgRespuesta("Transacción exitosa");
-            
-            // Data
-            result.setValNumeroComprobante("COMP-" + System.currentTimeMillis());
-            result.setValSecuencial(System.currentTimeMillis());
-            result.setFecHoraMovimiento(OffsetDateTime.now());
-            result.setValMonto(command.getValMonto());
-            result.setCostoDeLaTransaccion(BigDecimal.valueOf(2.50));
-            result.setValTasaCambio(command.getValTasaCambio());
-            result.setValMontoDestino(command.getValMontoDestino());
-            result.setCodMonedaTransaccion(command.getCodMonedaDestino());
+            if ("COBPER".equals(concepto)) {
+                // Cobro de membresía → PER001 (AS/400)
+                LOG.info("Routing a PER001 (AS/400) para concepto COBPER");
+                
+                // AUDITORÍA TRAMA_OUT - Registrar invocación a PER001
+                auditPort.logAsync(AuditLog.builder()
+                        .idTransaccion(command.getIdTransaccion())
+                        .tipoMensaje(AuditMessageType.TRAMA_OUT)
+                        .logCun(command.getValNumeroIdentificacion())
+                        .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
+                        .loginUser(command.getUsuario())
+                        .payload(AuditUtils.toJson(command))
+                        .estado("OK")
+                        .build());
+                
+                // Invocar programa RPG PER001
+                result = per001Service.processMembershipPayment(command);
+                
+                // AUDITORÍA TRAMA_IN - Registrar respuesta de PER001
+                auditPort.logAsync(AuditLog.builder()
+                        .idTransaccion(command.getIdTransaccion())
+                        .tipoMensaje(AuditMessageType.TRAMA_IN)
+                        .logCun(command.getValNumeroIdentificacion())
+                        .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
+                        .loginUser(command.getUsuario())
+                        .payload(AuditUtils.toJson(result))
+                        .estado("OK")
+                        .build());
+                
+            } else {
+                // Otros conceptos (TRCPRO, TRCTER, etc.) - usar lógica simulada por ahora
+                LOG.warn("Concepto {} no implementado, usando respuesta simulada", concepto);
+                result = buildSimulatedResult(command);
+            }
             
             LOG.info("Transferencia completada - comprobante={}", result.getValNumeroComprobante());
             
@@ -144,6 +163,31 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
             
             throw e;
         }
+    }
+    
+    private TransferResult buildSimulatedResult(TransferCommand command) {
+        TransferResult result = new TransferResult();
+        
+        // Header
+        result.setNombreOperacion(command.getNombreOperacion());
+        result.setTotal(command.getTotal());
+        result.setCaracterAceptacion("B"); // B = OK
+        result.setUltimoMensaje((short) 0);
+        result.setIdTransaccion(command.getIdTransaccion());
+        result.setCodMsgRespuesta(0);
+        result.setMsgRespuesta("Transacción exitosa (simulada)");
+        
+        // Data
+        result.setValNumeroComprobante("COMP-" + System.currentTimeMillis());
+        result.setValSecuencial(System.currentTimeMillis());
+        result.setFecHoraMovimiento(OffsetDateTime.now());
+        result.setValMonto(command.getValMonto());
+        result.setCostoDeLaTransaccion(BigDecimal.valueOf(2.50));
+        result.setValTasaCambio(command.getValTasaCambio());
+        result.setValMontoDestino(command.getValMontoDestino());
+        result.setCodMonedaTransaccion(command.getCodMonedaDestino());
+        
+        return result;
     }
 }
 

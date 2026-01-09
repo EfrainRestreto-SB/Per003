@@ -5,6 +5,7 @@ import com.ibm.as400.access.AS400Message;
 import com.ibm.as400.access.ProgramCall;
 import com.ibm.as400.access.ProgramParameter;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pa.davivienda.application.commands.TransferCommand;
@@ -26,15 +27,21 @@ public class Per001As400Adapter implements Per001ServicePort {
     
     private static final Logger LOG = LoggerFactory.getLogger(Per001As400Adapter.class);
     
-    // Configuración AS400
-    private static final String AS400_HOST = "10.246.17.67";
-    private static final String AS400_USER = "DAADATAPER";
-    private static final String AS400_PASSWORD = "PANAMA1";
+    // Configuración AS400 desde application.yml
+    @ConfigProperty(name = "as400.host")
+    String as400Host;
     
-    // Configuración del programa RPG
-    private static final String LIBRARY = "DAAUSRLIB";
-    private static final String PROGRAM_NAME = "PER001";
-    private static final String QUALIFIED_PROGRAM = "/QSYS.LIB/" + LIBRARY + ".LIB/" + PROGRAM_NAME + ".PGM";
+    @ConfigProperty(name = "as400.username")
+    String as400User;
+    
+    @ConfigProperty(name = "as400.password")
+    String as400Password;
+    
+    @ConfigProperty(name = "as400.library")
+    String library;
+    
+    @ConfigProperty(name = "as400.program.per001")
+    String programName;
     
     // Longitudes de las estructuras
     private static final int INHEADER_LENGTH = 215;
@@ -50,8 +57,8 @@ public class Per001As400Adapter implements Per001ServicePort {
         AS400 as400 = null;
         try {
             // 1. Conectar a AS/400
-            as400 = new AS400(AS400_HOST, AS400_USER, AS400_PASSWORD);
-            LOG.debug("Conexión establecida con AS/400: {}", AS400_HOST);
+            as400 = new AS400(as400Host, as400User, as400Password);
+            LOG.debug("Conexión establecida con AS/400: {}", as400Host);
             
             // 2. Construir parámetros de entrada (PINHEADER y PINBODY)
             String pinHeader = buildInHeader(command);
@@ -61,8 +68,9 @@ public class Per001As400Adapter implements Per001ServicePort {
             LOG.debug("PINBODY ({} chars): {}", pinBody.length(), pinBody);
             
             // 3. Configurar llamada al programa
+            String qualifiedProgram = "/QSYS.LIB/" + library + ".LIB/" + programName + ".PGM";
             ProgramCall program = new ProgramCall(as400);
-            program.setProgram(QUALIFIED_PROGRAM);
+            program.setProgram(qualifiedProgram);
             
             // 4. Definir parámetros (entrada/salida según firma del RPG)
             ProgramParameter[] parameters = new ProgramParameter[] {
@@ -74,7 +82,7 @@ public class Per001As400Adapter implements Per001ServicePort {
             program.setParameterList(parameters);
             
             // 5. Ejecutar programa RPG
-            LOG.info("Ejecutando programa: {}", QUALIFIED_PROGRAM);
+            LOG.info("Ejecutando programa: {}", qualifiedProgram);
             boolean success = program.run();
             
             if (!success) {

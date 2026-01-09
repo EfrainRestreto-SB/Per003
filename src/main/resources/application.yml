@@ -1,8 +1,17 @@
+# Configuración AS/400
+as400:
+  host: ${AS400_HOST:10.246.17.67}
+  username: ${AS400_USERNAME:DAADATAPER}
+  password: ${AS400_PASSWORD:PANAMA1}
+  library: ${AS400_LIBRARY:DAAUSRLIB}
+  program:
+    per001: ${AS400_PROGRAM_PER001:PER001}
+
 quarkus:
   datasource:
     db-kind: other
-    username: DAADATAPER
-    password: PANAMA1
+    username: ${DB_USERNAME:DAADATAPER}
+    password: ${DB_PASSWORD:PANAMA1}
     jdbc:
       driver: com.ibm.as400.access.AS400JDBCDriver
       url: jdbc:as400://10.246.17.67;
