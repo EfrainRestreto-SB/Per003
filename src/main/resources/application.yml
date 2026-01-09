@@ -99,3 +99,27 @@ quarkus:
     info-description: "API REST para orquestación de compensaciones y transferencias entre cuentas. Soporta múltiples operaciones: COBPER, TRCPRO, TRCTER, TININD"
     info-contact-name: "Equipo Davivienda"
     info-license-name: "Propietario"
+
+  # Health Checks
+  smallrye-health:
+    root-path: /q/health              # Endpoint principal de health checks
+    liveness-path: /q/health/live     # Health check de liveness (pod activo)
+    readiness-path: /q/health/ready   # Health check de readiness (pod listo)
+    ui:
+      always-include: true            # Incluir UI de health checks
+      root-path: /q/health-ui         # Ruta de la UI
+      
+  # Métricas y Observabilidad
+  micrometer:
+    enabled: true
+    export:
+      prometheus:
+        enabled: true
+        path: /q/metrics              # Endpoint de métricas Prometheus
+        default-registry: true
+    binder:
+      jvm: true                       # Métricas JVM (memoria, GC, threads)
+      system: true                    # Métricas del sistema (CPU, file descriptors)
+      http-server:
+        enabled: true                 # Métricas de requests HTTP
+        max-uri-tags: 100

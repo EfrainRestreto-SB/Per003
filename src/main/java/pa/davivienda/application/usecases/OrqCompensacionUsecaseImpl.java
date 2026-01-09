@@ -6,6 +6,9 @@ import java.time.OffsetDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.micrometer.core.annotation.Counted;
+import io.micrometer.core.annotation.Timed;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import pa.davivienda.application.commands.TransferCommand;
@@ -50,6 +53,9 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
     @Inject
     Per001ServicePort per001Service;
     
+    @Inject
+    MeterRegistry meterRegistry;
+    
     /**
      * Ejecuta una operación de transferencia/compensación.
      * 
@@ -73,6 +79,8 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
      * @see TransferResult
      */
     @Override
+    @Timed(value = "transfer.time", description = "Tiempo de ejecución de transferencias", percentiles = {0.5, 0.95, 0.99})
+    @Counted(value = "transfer.total", description = "Contador total de transferencias")
     public TransferResult transfer(TransferCommand command) {
         LOG.info("Ejecutando transferencia - idTransaccion={}, concepto={}, monto={}", 
                  command.getIdTransaccion(), 
@@ -99,6 +107,9 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
             if ("COBPER".equals(concepto)) {
                 // Cobro de membresía → PER001 (AS/400)
                 LOG.info("Routing a PER001 (AS/400) para concepto COBPER");
+                
+                // Métrica: incrementar contador de llamadas PER001
+                meterRegistry.counter("per001.calls", "concept", "COBPER").increment();
                 
                 // AUDITORÍA TRAMA_OUT - Registrar invocación a PER001
                 auditPort.logAsync(AuditLog.builder()
@@ -128,8 +139,19 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
             } else {
                 // Otros conceptos (TRCPRO, TRCTER, etc.) - usar lógica simulada por ahora
                 LOG.warn("Concepto {} no implementado, usando respuesta simulada", concepto);
+                
+                // Métrica: incrementar contador de conceptos no implementados
+                meterRegistry.counter("transfer.simulated", "concept", concepto).increment();
+                
                 result = buildSimulatedResult(command);
             }
+            
+            // Métrica: incrementar contador de transferencias exitosas por concepto
+            meterRegistry.counter("transfer.success", "concept", concepto).increment();
+            
+            // Métrica: registrar monto de la transacción
+            meterRegistry.summary("transfer.amount", "concept", concepto)
+                    .record(command.getValMonto().doubleValue());
             
             LOG.info("Transferencia completada - comprobante={}", result.getValNumeroComprobante());
             
@@ -148,6 +170,12 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
             
         } catch (Exception e) {
             LOG.error("Error en transferencia - idTransaccion={}", command.getIdTransaccion(), e);
+            
+            // Métrica: incrementar contador de errores por tipo de concepto
+            String concepto = command.getCodTipoConcepto();
+            meterRegistry.counter("transfer.error", 
+                    "concept", concepto,
+                    "exception", e.getClass().getSimpleName()).increment();
             
             // 3. AUDITORÍA ERROR - Registrar excepción
             auditPort.logAsync(AuditLog.builder()
