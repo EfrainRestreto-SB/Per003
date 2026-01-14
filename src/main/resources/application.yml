@@ -123,3 +123,31 @@ quarkus:
       http-server:
         enabled: true                 # Métricas de requests HTTP
         max-uri-tags: 100
+
+  # Fault Tolerance - Circuit Breaker, Retry, Timeout
+  fault-tolerance:
+    # Habilitar métricas de Circuit Breaker
+    metrics:
+      enabled: true
+    # Configuración global (puede ser sobreescrita por anotaciones)
+    circuit-breaker:
+      enabled: true
+    retry:
+      enabled: true
+    timeout:
+      enabled: true
+
+# Configuración específica de Circuit Breaker para Per001As400Adapter
+# (Las anotaciones en el código ya tienen la config, esto es solo referencia)
+# pa/davivienda/persistence/adapters/Per001As400Adapter/processMembershipPayment:
+#   CircuitBreaker:
+#     requestVolumeThreshold: 10    # Mínimo de requests para evaluar
+#     failureRatio: 0.5              # 50% de fallos abre el circuito
+#     delay: 30000                   # 30 segundos antes de pasar a half-open
+#     successThreshold: 2            # 2 éxitos consecutivos para cerrar circuito
+#   Retry:
+#     maxRetries: 3                  # Máximo 3 reintentos
+#     delay: 1000                    # 1 segundo entre reintentos
+#     jitter: 200                    # ±200ms de variación aleatoria
+#   Timeout:
+#     value: 10                      # 10 segundos de timeout

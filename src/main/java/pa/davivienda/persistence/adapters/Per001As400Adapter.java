@@ -8,6 +8,10 @@ import com.ibm.as400.access.ProgramCall;
 import com.ibm.as400.access.ProgramParameter;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
+import org.eclipse.microprofile.faulttolerance.Fallback;
+import org.eclipse.microprofile.faulttolerance.Retry;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pa.davivienda.application.commands.TransferCommand;
@@ -16,6 +20,7 @@ import pa.davivienda.domain.ports.output.Per001ServicePort;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 /**
  * Adapter para invocar el programa RPG PER001 en AS/400.
@@ -29,6 +34,12 @@ import java.time.OffsetDateTime;
  * 
  * <p>La configuración de conexión se inyecta desde application.yml mediante
  * MicroProfile Config, permitiendo override con variables de entorno.
+ * 
+ * <p>Implementa patrones de resiliencia:
+ * - Circuit Breaker: Protege contra fallos del AS/400
+ * - Retry: Reintentos automáticos con backoff
+ * - Timeout: Límite de tiempo de ejecución
+ * - Fallback: Respuesta alternativa cuando el servicio no está disponible
  */
 @ApplicationScoped
 public class Per001As400Adapter implements Per001ServicePort {
@@ -53,11 +64,26 @@ public class Per001As400Adapter implements Per001ServicePort {
     /**
      * Procesa un cobro de membresía invocando el programa RPG PER001 en AS/400.
      * 
+     * <p>Patrones de resiliencia aplicados:
+     * - Timeout de 10 segundos para evitar esperas infinitas
+     * - 3 reintentos con 1 segundo de delay entre intentos
+     * - Circuit Breaker que abre después de 5 fallos consecutivos (50% failure ratio)
+     * - Fallback a respuesta de error cuando el circuito está abierto
+     * 
      * @param command Comando con los datos de la transferencia/cobro
      * @return Resultado de la operación procesada por PER001
-     * @throws RuntimeException Si hay error de conexión o ejecución del programa
+     * @throws RuntimeException Si hay error de conexión o ejecución del programa después de reintentos
      */
     @Override
+    @Timeout(value = 10, unit = ChronoUnit.SECONDS)
+    @Retry(maxRetries = 3, delay = 1000, jitter = 200)
+    @CircuitBreaker(
+        requestVolumeThreshold = 10,
+        failureRatio = 0.5,
+        delay = 30000,
+        successThreshold = 2
+    )
+    @Fallback(fallbackMethod = "fallbackMembershipPayment")
     public TransferResult processMembershipPayment(TransferCommand command) {
         LOGGER.info("Iniciando llamada a PER001 - idTransaccion={}", command.getIdTransaccion());
 
@@ -261,5 +287,32 @@ public class Per001As400Adapter implements Per001ServicePort {
         } catch (NumberFormatException e) {
             return defaultValue;
         }
+    }
+
+    /**
+     * Método fallback que se ejecuta cuando el Circuit Breaker está abierto
+     * o cuando todos los reintentos han fallado.
+     * 
+     * <p>Retorna una respuesta de error controlada indicando que el servicio
+     * AS/400 no está disponible temporalmente.
+     * 
+     * @param command Comando original de la transferencia
+     * @return TransferResult con indicación de servicio no disponible
+     */
+    public TransferResult fallbackMembershipPayment(TransferCommand command) {
+        LOGGER.warn("Circuit Breaker ABIERTO o reintentos agotados - ejecutando fallback para idTransaccion={}", 
+                   command.getIdTransaccion());
+        
+        TransferResult result = new TransferResult();
+        result.setIdTransaccion(command.getIdTransaccion());
+        result.setNombreOperacion("OrqCompensacion");
+        result.setCaracterAceptacion("E"); // Error
+        result.setCodMsgRespuesta(503); // Service Unavailable
+        result.setMsgRespuesta("Servicio AS/400 temporalmente no disponible. Circuit Breaker activado. Intente más tarde.");
+        result.setValNumeroComprobante("FB-" + System.currentTimeMillis()); // Fallback ID
+        result.setValSecuencial(0L);
+        result.setFecHoraMovimiento(OffsetDateTime.now());
+        
+        return result;
     }
 }
