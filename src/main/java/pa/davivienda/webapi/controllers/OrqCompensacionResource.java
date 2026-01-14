@@ -145,6 +145,11 @@ public class OrqCompensacionResource {
             responseCode = "500",
             description = "Error interno del servidor",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+        ),
+        @APIResponse(
+            responseCode = "503",
+            description = "Servicio no disponible - Circuit Breaker activado o AS/400 inaccesible",
+            content = @Content(schema = @Schema(implementation = OrqResponse.class))
         )
     })
     public Response transfer(
@@ -206,6 +211,16 @@ public class OrqCompensacionResource {
             OrqResponse response = mapper.toResponse(result);
 
             LOG.info("Fin OrqCompensacion - transfer - idTransaccion={}", correlationId);
+
+            // 7) Retornar código HTTP apropiado según resultado de la operación
+            //    Si caracterAceptacion = "E" (error) y hay código >= 500: Service Unavailable
+            if ("E".equals(result.getCaracterAceptacion()) && 
+                result.getCodMsgRespuesta() != null && 
+                result.getCodMsgRespuesta() >= 500) {
+                LOG.warn("Servicio no disponible - Circuit Breaker o error AS/400 - idTransaccion={}, code={}", 
+                         correlationId, result.getCodMsgRespuesta());
+                return Response.status(Response.Status.SERVICE_UNAVAILABLE).entity(response).build();
+            }
 
             return Response.ok(response).build();
         } catch (BadRequestException bre) {
