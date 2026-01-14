@@ -65,7 +65,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -100,7 +100,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -127,7 +127,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -178,7 +178,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -208,7 +208,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -234,7 +234,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -259,7 +259,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -287,7 +287,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
@@ -319,7 +319,7 @@ class Per001As400AdapterTest {
         
         try (MockedConstruction<AS400> as400Construction = mockConstruction(AS400.class,
                 (mock, context) -> {
-                    when(mock.getCcsid()).thenReturn(37);
+                    when(mock.getCcsid()).thenReturn(Integer.valueOf(37));
                     doNothing().when(mock).disconnectAllServices();
                 });
              MockedConstruction<ProgramCall> programCallConstruction = mockConstruction(ProgramCall.class,
