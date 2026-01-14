@@ -34,9 +34,7 @@ import java.util.Optional;
  * </p>
  * <ul>
  *   <li>Canal 81 + COBPER - PER001 (Cobro de membresía) [IMPLEMENTADO]</li>
- *   <li>Canal 151 + TRCPRO - PER004 (Transferencias regionales cuentas propias) [PENDIENTE]</li>
- *   <li>Canal 151 + TRCTER - PER005 (Transferencias regionales a terceros) [PENDIENTE]</li>
- *   <li>Canal 151 + TININD - PER006 (Transferencias internacionales individuales) [PENDIENTE]</li>
+ *   <li>Otros canales: En desarrollo</li>
  * </ul>
  * 
  * @author Davivienda
@@ -92,6 +90,12 @@ public class ChannelConceptValidator {
 
         LOGGER.debug("Validando canal={} + concepto={}", canal, concepto);
         
+        // Validar que solo canal 81 esté habilitado - otros canales en desarrollo
+        if (canal != 81) {
+            LOGGER.warn("Canal '{}' no está habilitado - En desarrollo", canal);
+            throw new InvalidChannelConceptException(canal, concepto, "En desarrollo");
+        }
+        
         // Buscar en el Map en memoria si el concepto está implementado
         Optional<ConceptProgramConfig> mappingOpt = 
                 mappingConfig.findImplementedConfig(concepto);
@@ -126,7 +130,7 @@ public class ChannelConceptValidator {
      * <p>Reglas de negocio:</p>
      * <ul>
      *   <li>Canal 81: Solo COBPER (PER001)</li>
-     *   <li>Canal 151: TRCPRO, TRCTER, TININD, TINARC (PER004, PER005)</li>
+     *   <li>Otros canales: En desarrollo</li>
      * </ul>
      * 
      * @param canal el código del canal
@@ -135,29 +139,20 @@ public class ChannelConceptValidator {
      * @return true si la combinación es válida
      */
     private boolean validateChannelForConcept(Short canal, String concepto, ConceptProgramConfig mapping) {
-        // Canal 81: Solo COBPER
+        // Solo canal 81 habilitado - Solo COBPER
         if (canal == 81) {
             return "COBPER".equalsIgnoreCase(concepto);
         }
         
-        // Canal 151: Transferencias (TRCPRO, TRCTER, TININD, TINARC, TRA11R, TR1VR)
-        if (canal == 151) {
-            return "TRCPRO".equalsIgnoreCase(concepto) ||
-                   "TRCTER".equalsIgnoreCase(concepto) ||
-                   "TININD".equalsIgnoreCase(concepto) ||
-                   "TINARC".equalsIgnoreCase(concepto) ||
-                   "TRA11R".equalsIgnoreCase(concepto) ||
-                   "TR1VR".equalsIgnoreCase(concepto);
-        }
-        
-        // Otros canales: por ahora rechazar
-        LOGGER.warn("Canal '{}' no tiene reglas de validación definidas", canal);
+        // Otros canales: En desarrollo
+        LOGGER.warn("Canal '{}' no está habilitado - En desarrollo", canal);
         return false;
     }
     
     /**
      * Verifica si una combinación de canal y concepto es válida sin lanzar excepción.
      * Consulta el Map en memoria para determinar la validez.
+     * Solo canal 81 está habilitado, otros canales retornan false (En desarrollo).
      * 
      * @param canal el código del canal
      * @param concepto el código del tipo de concepto
@@ -165,6 +160,12 @@ public class ChannelConceptValidator {
      */
     public boolean isValid(Short canal, String concepto) {
         if (canal == null || concepto == null || concepto.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Solo canal 81 habilitado
+        if (canal != 81) {
+            LOGGER.debug("Canal '{}' no está habilitado - En desarrollo", canal);
             return false;
         }
         
