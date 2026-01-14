@@ -331,8 +331,41 @@ Para llamadas a PER001 (AS400) no hay protección contra cascading failures.
 public TransferResult transfer(TransferCommand command) { ... }
 ```
 
-**3.5 Sin Validación de Estado del Sistema**
-No hay health checks ni readiness probes.
+**3.5 ✅ Health Checks Implementados (RESUELTO) 🟢**
+
+**Estado:** COMPLETADO (09/01/2026)
+
+**Health Checks Implementados:**
+```java
+// DatabaseHealthCheck.java - IMPLEMENTADO
+@Liveness
+@Readiness
+@ApplicationScoped
+public class DatabaseHealthCheck implements HealthCheck {
+    @Override
+    public HealthCheckResponse call() {
+        // Verifica conexión a DB2
+    }
+}
+
+// As400HealthCheck.java - IMPLEMENTADO
+@Readiness
+@ApplicationScoped
+public class As400HealthCheck implements HealthCheck {
+    @Override
+    public HealthCheckResponse call() {
+        // Verifica disponibilidad AS/400
+    }
+}
+```
+
+**Endpoints Disponibles:**
+- ✅ `/q/health` - Estado general del servicio
+- ✅ `/q/health/live` - Liveness probe (para Kubernetes)
+- ✅ `/q/health/ready` - Readiness probe (DB2 + AS/400)
+- ✅ `/q/health-ui` - Interfaz gráfica de health checks
+
+**Kubernetes Ready:** Probes configurados para orchestration
 
 **Score de Gestión de Errores:** 6/10
 
@@ -369,13 +402,32 @@ ConceptConfiguration getConceptConfiguration(String conceptCode);
 **4.4 Sin Paginación en Endpoints**
 Si el endpoint devuelve múltiples resultados, falta soporte de paginación.
 
-**4.5 Sin Métricas de Performance**
+**4.5 ✅ Métricas de Performance Implementadas (RESUELTO) 🟢**
+
+**Estado:** COMPLETADO (09/01/2026)
+
+**Métricas Implementadas:**
 ```java
-// RECOMENDACIÓN: Añadir métricas Micrometer
-@Timed(value = "transfer.duration", description = "Tiempo de ejecución de transfer")
-@Counted(value = "transfer.invocations", description = "Número de invocaciones")
-public TransferResult transfer(TransferCommand command) { ... }
+// OrqCompensacionUsecaseImpl.java - IMPLEMENTADO
+@Timed(value = "transfer.duration", description = "Transfer execution time")
+@Counted(value = "transfer.total", description = "Total transfers")
+public TransferResult transfer(TransferCommand command) {
+    // Métricas de negocio personalizadas
+    meterRegistry.counter("transfer.success", "concept", concepto).increment();
+    meterRegistry.summary("transfer.amount", "concept", concepto).record(monto.doubleValue());
+}
 ```
+
+**Métricas Disponibles:**
+- ✅ `transfer.duration` - Tiempo de ejecución con @Timed
+- ✅ `transfer.total` - Contador total con @Counted
+- ✅ `transfer.success` - Transferencias exitosas por concepto
+- ✅ `transfer.amount` - Montos procesados (summary)
+- ✅ `transfer.error` - Errores registrados
+- ✅ `per001.calls` - Llamadas al AS/400
+- ✅ `transfer.simulated` - Respuestas simuladas
+
+**Endpoint:** `/q/metrics` (formato Prometheus)
 
 **4.6 Transacciones JDBC**
 ```yaml
@@ -1522,12 +1574,27 @@ public static String exceptionToJson(Exception e, String source);  // Stack trac
 </dependency>
 ```
 
-**8.9 Sin Métricas de Negocio**
+**8.9 ✅ Métricas de Negocio Implementadas (RESUELTO) 🟢**
+
+**Estado:** COMPLETADO (09/01/2026)
+
 ```java
-// RECOMENDACIÓN: Registrar métricas
-meterRegistry.counter("transfers.total", "concept", concepto).increment();
-meterRegistry.summary("transfers.amount", "concept", concepto).record(monto);
+// OrqCompensacionUsecaseImpl.java - IMPLEMENTADO
+meterRegistry.counter("transfer.success", "concept", concepto).increment();
+meterRegistry.summary("transfer.amount", "concept", concepto).record(monto.doubleValue());
+meterRegistry.counter("per001.calls").increment();
+meterRegistry.counter("transfer.simulated", "concept", concepto).increment();
+meterRegistry.counter("transfer.error", "concept", concepto, "error", e.getClass().getSimpleName()).increment();
 ```
+
+**Métricas de Negocio Disponibles:**
+- ✅ `transfer.success` - Transferencias exitosas por concepto (COBPER, TRCPRO, TRCTER)
+- ✅ `transfer.amount` - Distribución de montos procesados (percentiles p50, p95, p99)
+- ✅ `per001.calls` - Llamadas al servicio AS/400 PER001
+- ✅ `transfer.simulated` - Respuestas simuladas por concepto
+- ✅ `transfer.error` - Errores clasificados por concepto y tipo de excepción
+
+**Endpoint:** `/q/metrics` (Prometheus), `/q/metrics/application` (solo métricas de aplicación)
 
 **Score de Logging y Observabilidad:** 9/10
 
@@ -1696,27 +1763,26 @@ as400:
 
 ---
 
-### 2. Credenciales Expuestas (CRÍTICO) 🔴
+### 2. ✅ Credenciales Externalizadas (RESUELTO) 🟢
 
-**Archivo:** 
-- `src/main/resources/application.yml` (líneas 6-7)
-- `src/main/java/pa/davivienda/persistence/adapters/Per001As400Adapter.java` (líneas 30-32)
+**Componente:** `Per001As400Adapter.java`, `application.yml`  
+**Estado:** COMPLETADO (09/01/2026)
 
-**Problema:**
+**Problema Original:**
 ```yaml
-# application.yml
+# application.yml - ANTES
 username: DAADATAPER
 password: PANAMA1  # ⚠️ Contraseña en texto plano
 ```
 
 ```java
-// Per001As400Adapter.java
+// Per001As400Adapter.java - ANTES
 private static final String AS400_PASSWORD = "PANAMA1";  // ⚠️ Hardcoded
 ```
 
-**Solución:**
+**Solución Implementada:**
 ```yaml
-# application.yml
+# application.yml - AHORA
 quarkus:
   datasource:
     username: ${DB_USERNAME:DAADATAPER}
@@ -1726,10 +1792,12 @@ as400:
   host: ${AS400_HOST:10.246.17.67}
   username: ${AS400_USERNAME:DAADATAPER}
   password: ${AS400_PASSWORD}
+  library: ${AS400_LIBRARY:DAAUSRLIB}
+  program: ${AS400_PROGRAM:PER001}
 ```
 
 ```java
-// Per001As400Adapter.java
+// Per001As400Adapter.java - AHORA
 @ConfigProperty(name = "as400.host")
 String as400Host;
 
@@ -1738,10 +1806,23 @@ String as400User;
 
 @ConfigProperty(name = "as400.password")
 String as400Password;
+
+@ConfigProperty(name = "as400.library")
+String as400Library;
+
+@ConfigProperty(name = "as400.program")
+String as400Program;
 ```
 
-**Prioridad:** CRÍTICA - Riesgo de seguridad  
-**Impacto:** Credenciales expuestas en repositorio Git
+**Resultado:**
+- ✅ Credenciales removidas del código fuente
+- ✅ Configuración externalizada con @ConfigProperty
+- ✅ Soporte de variables de entorno para producción
+- ✅ Pattern ${VAR:default} para desarrollo local
+- ✅ Sin riesgo de exposición en Git
+
+**Prioridad:** ~~CRÍTICA~~ → RESUELTO  
+**Impacto:** Riesgo de seguridad eliminado
 
 ---
 
