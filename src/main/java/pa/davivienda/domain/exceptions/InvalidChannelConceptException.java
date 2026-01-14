@@ -11,8 +11,8 @@ package pa.davivienda.domain.exceptions;
  * <p>
  * Reglas de validación actuales (desarrollo):
  * <ul>
- *   <li><b>Canal 81 + COBPER:</b> ✅ Válido (PER001 - AS/400)</li>
- *   <li><b>Cualquier otra combinación:</b> ❌ Inválido (no implementado)</li>
+ *   <li><b>Canal 81 + COBPER:</b> Válido (PER001 - AS/400)</li>
+ *   <li><b>Cualquier otra combinación:</b> Inválido (no implementado)</li>
  * </ul>
  * </p>
  * 

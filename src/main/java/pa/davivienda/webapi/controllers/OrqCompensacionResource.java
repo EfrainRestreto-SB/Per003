@@ -43,15 +43,15 @@ import pa.davivienda.webapi.validators.InputHeadersPer003Validator;
  * 1. CAPA WEB API (este controlador):
  *    - Recibe OrqRequest (DTO REST) del cliente
  *    - Valida el payload usando Bean Validation (@Valid)
- *    - Usa TransferMapper (MapStruct) para convertir OrqRequest → TransferCommand
+ *    - Usa TransferMapper (MapStruct) para convertir OrqRequest a TransferCommand
  *    - Invoca el servicio de aplicación pasando TransferCommand
  *    - Recibe TransferResult del servicio
- *    - Usa TransferMapper para convertir TransferResult → OrqResponse
+ *    - Usa TransferMapper para convertir TransferResult a OrqResponse
  *    - Devuelve OrqResponse (DTO REST) al cliente
  * 
  * 2. MAPPER (TransferMapper):
  *    - Actúa como adaptador entre la capa web y la capa de aplicación
- *    - Convierte DTOs REST ↔ Commands/Results del dominio
+ *    - Convierte DTOs REST a/desde Commands/Results del dominio
  *    - Desacopla el contrato REST de la lógica de negocio
  * 
  * 3. CAPA DE APLICACIÓN (OrqCompensacionService):
@@ -62,7 +62,7 @@ import pa.davivienda.webapi.validators.InputHeadersPer003Validator;
  * 
  * Beneficios de esta arquitectura:
  * - La lógica de negocio es testeable sin dependencias de frameworks web
- * - Podemos cambiar el protocolo (REST → gRPC, GraphQL) sin tocar la lógica
+ * - Podemos cambiar el protocolo (REST a gRPC, GraphQL) sin tocar la lógica
  * - Los Commands/Results son objetos puros del dominio, sin anotaciones de frameworks
  * - Cumple con el principio de inversión de dependencias (DIP)
  */
@@ -84,11 +84,11 @@ public class OrqCompensacionResource {
      * Endpoint principal para orquestación de compensaciones.
      *
      * Flujo del request:
-     * 1. Headers HTTP (RequestHeaders) + Body JSON (OrqRequest) → validación con @Valid
-     * 2. Headers + OrqRequest → TransferCommand (mapper)
-     * 3. TransferCommand → service.transfer() → TransferResult
-     * 4. TransferResult → OrqResponse (mapper)
-     * 5. OrqResponse → cliente
+     * 1. Headers HTTP (RequestHeaders) + Body JSON (OrqRequest) - validación con @Valid
+     * 2. Headers + OrqRequest - TransferCommand (mapper)
+     * 3. TransferCommand - service.transfer() - TransferResult
+     * 4. TransferResult - OrqResponse (mapper)
+     * 5. OrqResponse - cliente
      * 
      * El mapper (MapStruct) se encarga de la conversión automática entre:
      * - Headers HTTP (RequestHeaders): metadata del request (nombreOperacion, total, jornada, etc.)
@@ -188,7 +188,7 @@ public class OrqCompensacionResource {
             LOG.info("Inicio OrqCompensacion - transfer - idTransaccion={}, usuario={}, operacion={}", 
                      correlationId, headers.getUsuario(), headers.getNombreOperacion());
             
-            // 4) Convertir Headers HTTP + Body JSON → TransferCommand (comando de aplicación)
+            // 4) Convertir Headers HTTP + Body JSON a TransferCommand (comando de aplicación)
             //    Este mapper desacopla la estructura REST de la lógica de negocio
             TransferCommand command = mapper.toCommand(headers, request);
             LOG.debug("Request mapeado a comando - concepto={}, monto={}", 
@@ -200,7 +200,7 @@ public class OrqCompensacionResource {
             LOG.debug("Resultado obtenido del servicio - comprobante={}", 
                      result.getValNumeroComprobante());
             
-            // 6) Convertir TransferResult (resultado de aplicación) → OrqResponse (DTO REST)
+            // 6) Convertir TransferResult (resultado de aplicación) a OrqResponse (DTO REST)
             //    Este mapper reconstruye la estructura jerárquica esperada por el cliente REST
             OrqResponse response = mapper.toResponse(result);
 

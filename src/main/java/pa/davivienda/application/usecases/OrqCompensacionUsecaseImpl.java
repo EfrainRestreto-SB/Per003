@@ -113,7 +113,7 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
             String concepto = command.getCodTipoConcepto();
             
             if ("COBPER".equals(concepto)) {
-                // Cobro de membresía → PER001 (AS/400)
+                // Cobro de membresía - PER001 (AS/400)
                 LOG.info("Routing a PER001 (AS/400) para concepto COBPER");
                 
                 // Métrica: incrementar contador de llamadas PER001

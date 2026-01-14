@@ -16,18 +16,18 @@ import pa.davivienda.domain.exceptions.InvalidChannelConceptException;
  * <b>Reglas de validación en desarrollo:</b>
  * </p>
  * <ul>
- *   <li><b>Canal 81 + COBPER:</b> ✅ Válido → Enruta a PER001 (AS/400)</li>
- *   <li><b>Cualquier otra combinación:</b> ❌ Rechazado → Lanza {@link InvalidChannelConceptException}</li>
+ *   <li><b>Canal 81 + COBPER:</b> Válido - Enruta a PER001 (AS/400)</li>
+ *   <li><b>Cualquier otra combinación:</b> Rechazado - Lanza {@link InvalidChannelConceptException}</li>
  * </ul>
  * 
  * <p>
  * <b>Reglas futuras (producción):</b>
  * </p>
  * <ul>
- *   <li>Canal 81 + COBPER → PER001 (Cobro de membresía)</li>
- *   <li>Canal 151 + TRCPRO → PER004 (Transferencias regionales cuentas propias)</li>
- *   <li>Canal 151 + TRCTER → PER005 (Transferencias regionales a terceros)</li>
- *   <li>Canal 151 + TININD → PER006 (Transferencias internacionales individuales)</li>
+ *   <li>Canal 81 + COBPER - PER001 (Cobro de membresía)</li>
+ *   <li>Canal 151 + TRCPRO - PER004 (Transferencias regionales cuentas propias)</li>
+ *   <li>Canal 151 + TRCTER - PER005 (Transferencias regionales a terceros)</li>
+ *   <li>Canal 151 + TININD - PER006 (Transferencias internacionales individuales)</li>
  * </ul>
  * 
  * @author Davivienda
@@ -78,11 +78,11 @@ public class ChannelConceptValidator {
         
         // Validar combinación canal + concepto (solo 81 + COBPER está implementado)
         if (canal.shortValue() == 81 && "COBPER".equalsIgnoreCase(concepto)) {
-            // ✅ Combinación válida: Canal 81 + COBPER → PER001 implementado
+            // Combinación válida: Canal 81 + COBPER - PER001 implementado
             return;
         }
         
-        // ❌ Otras operaciones no están implementadas todavía
+        // Otras operaciones no están implementadas todavía
         throw new InvalidChannelConceptException(canal, concepto);
     }
     
