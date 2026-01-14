@@ -14,8 +14,6 @@ import jakarta.inject.Inject;
 import pa.davivienda.application.commands.TransferCommand;
 import pa.davivienda.application.results.TransferResult;
 import pa.davivienda.application.validators.ChannelConceptValidator;
-import pa.davivienda.domain.entities.AuditLog;
-import pa.davivienda.domain.enums.AuditMessageType;
 import pa.davivienda.domain.interfaces.usecases.OrqCompensacionService;
 import pa.davivienda.domain.ports.output.AuditPort;
 import pa.davivienda.domain.ports.output.Per001ServicePort;
@@ -97,15 +95,7 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
         channelConceptValidator.validate(command);
         
         // 1. AUDITORÍA ENTRADA - Registrar request recibido
-        auditPort.logAsync(AuditLog.builder()
-                .idTransaccion(command.getIdTransaccion())
-                .tipoMensaje(AuditMessageType.ENTRADA)
-                .logCun(command.getValNumeroIdentificacion())  // CUN del cliente
-                .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
-                .loginUser(command.getUsuario())
-                .payload(AuditUtils.toJson(command))
-                .estado("OK")
-                .build());
+        auditPort.logAsync(AuditUtils.createEntradaLog(command, command));
         
         TransferResult result = null;
         
@@ -121,29 +111,13 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
                 meterRegistry.counter("per001.calls", "concept", TransactionConstants.ConceptType.COBPER).increment();
                 
                 // AUDITORÍA TRAMA_OUT - Registrar invocación a PER001
-                auditPort.logAsync(AuditLog.builder()
-                        .idTransaccion(command.getIdTransaccion())
-                        .tipoMensaje(AuditMessageType.TRAMA_OUT)
-                        .logCun(command.getValNumeroIdentificacion())
-                        .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
-                        .loginUser(command.getUsuario())
-                        .payload(AuditUtils.toJson(command))
-                        .estado("OK")
-                        .build());
+                auditPort.logAsync(AuditUtils.createTramaOutLog(command, command));
                 
                 // Invocar programa RPG PER001
                 result = per001Service.processMembershipPayment(command);
                 
                 // AUDITORÍA TRAMA_IN - Registrar respuesta de PER001
-                auditPort.logAsync(AuditLog.builder()
-                        .idTransaccion(command.getIdTransaccion())
-                        .tipoMensaje(AuditMessageType.TRAMA_IN)
-                        .logCun(command.getValNumeroIdentificacion())
-                        .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
-                        .loginUser(command.getUsuario())
-                        .payload(AuditUtils.toJson(result))
-                        .estado("OK")
-                        .build());
+                auditPort.logAsync(AuditUtils.createTramaInLog(command, result));
                 
             } else {
                 // Otros conceptos (TRCPRO, TRCTER, etc.) - usar lógica simulada por ahora
@@ -165,15 +139,7 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
             LOG.info("Transferencia completada - comprobante={}", result.getValNumeroComprobante());
             
             // 2. AUDITORÍA SALIDA - Registrar response exitoso
-            auditPort.logAsync(AuditLog.builder()
-                    .idTransaccion(command.getIdTransaccion())
-                    .tipoMensaje(AuditMessageType.SALIDA)
-                    .logCun(command.getValNumeroIdentificacion())
-                    .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
-                    .loginUser(command.getUsuario())
-                    .payload(AuditUtils.toJson(result))
-                    .estado("OK")
-                    .build());
+            auditPort.logAsync(AuditUtils.createSalidaLog(command, result));
             
             return result;
             
@@ -187,16 +153,7 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
                     "exception", e.getClass().getSimpleName()).increment();
             
             // 3. AUDITORÍA ERROR - Registrar excepción
-            auditPort.logAsync(AuditLog.builder()
-                    .idTransaccion(command.getIdTransaccion())
-                    .tipoMensaje(AuditMessageType.ERROR)
-                    .logCun(command.getValNumeroIdentificacion())
-                    .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
-                    .loginUser(command.getUsuario())
-                    .payload(AuditUtils.exceptionToJson(e, "OrqCompensacionUsecaseImpl.transfer"))
-                    .estado("ERROR")
-                    .detalleError(e.getMessage())
-                    .build());
+            auditPort.logAsync(AuditUtils.createErrorLog(command, e, "OrqCompensacionUsecaseImpl.transfer"));
             
             throw e;
         }

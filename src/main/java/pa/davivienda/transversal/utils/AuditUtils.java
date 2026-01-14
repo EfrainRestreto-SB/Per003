@@ -9,6 +9,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import pa.davivienda.application.commands.TransferCommand;
+import pa.davivienda.domain.entities.AuditLog;
+import pa.davivienda.domain.enums.AuditMessageType;
+
 /**
  * Utilidades para el sistema de auditoría.
  * 
@@ -19,6 +23,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  *   <li>Cálculo de hash SHA-256 para integridad</li>
  *   <li>Manejo de timestamps y formato de fechas</li>
  *   <li>Construcción de payloads estructurados</li>
+ *   <li>Creación simplificada de logs de auditoría</li>
  * </ul>
  * </p>
  * 
@@ -226,5 +231,99 @@ public class AuditUtils {
                   .replace("\n", "\\n")
                   .replace("\r", "\\r")
                   .replace("\t", "\\t");
+    }
+    
+    /**
+     * Crea un log de auditoría base desde un comando de transferencia.
+     * 
+     * <p>
+     * Este método extrae los campos comunes del comando y crea un builder
+     * de AuditLog pre-configurado. Esto elimina duplicación de código
+     * al crear múltiples logs de auditoría para la misma transacción.
+     * </p>
+     * 
+     * @param command comando de transferencia del cual extraer los datos comunes
+     * @param messageType tipo de mensaje de auditoría (ENTRADA, SALIDA, TRAMA_IN, TRAMA_OUT, ERROR)
+     * @return builder de AuditLog con los campos comunes configurados
+     */
+    public static AuditLog.AuditLogBuilder createAuditLog(TransferCommand command, AuditMessageType messageType) {
+        return AuditLog.builder()
+                .idTransaccion(command.getIdTransaccion())
+                .tipoMensaje(messageType)
+                .logCun(command.getValNumeroIdentificacion())
+                .logCanal(command.getCanal() != null ? String.valueOf(command.getCanal()) : null)
+                .loginUser(command.getUsuario());
+    }
+    
+    /**
+     * Crea un log de auditoría de entrada con payload y estado OK.
+     * 
+     * @param command comando de transferencia
+     * @param payload objeto a serializar como payload JSON
+     * @return AuditLog completo listo para registrar
+     */
+    public static AuditLog createEntradaLog(TransferCommand command, Object payload) {
+        return createAuditLog(command, AuditMessageType.ENTRADA)
+                .payload(toJson(payload))
+                .estado("OK")
+                .build();
+    }
+    
+    /**
+     * Crea un log de auditoría de salida con payload y estado OK.
+     * 
+     * @param command comando de transferencia
+     * @param payload objeto a serializar como payload JSON
+     * @return AuditLog completo listo para registrar
+     */
+    public static AuditLog createSalidaLog(TransferCommand command, Object payload) {
+        return createAuditLog(command, AuditMessageType.SALIDA)
+                .payload(toJson(payload))
+                .estado("OK")
+                .build();
+    }
+    
+    /**
+     * Crea un log de auditoría de trama saliente (TRAMA_OUT) con payload y estado OK.
+     * 
+     * @param command comando de transferencia
+     * @param payload objeto a serializar como payload JSON
+     * @return AuditLog completo listo para registrar
+     */
+    public static AuditLog createTramaOutLog(TransferCommand command, Object payload) {
+        return createAuditLog(command, AuditMessageType.TRAMA_OUT)
+                .payload(toJson(payload))
+                .estado("OK")
+                .build();
+    }
+    
+    /**
+     * Crea un log de auditoría de trama entrante (TRAMA_IN) con payload y estado OK.
+     * 
+     * @param command comando de transferencia
+     * @param payload objeto a serializar como payload JSON
+     * @return AuditLog completo listo para registrar
+     */
+    public static AuditLog createTramaInLog(TransferCommand command, Object payload) {
+        return createAuditLog(command, AuditMessageType.TRAMA_IN)
+                .payload(toJson(payload))
+                .estado("OK")
+                .build();
+    }
+    
+    /**
+     * Crea un log de auditoría de error con información de la excepción.
+     * 
+     * @param command comando de transferencia
+     * @param ex excepción ocurrida
+     * @param context contexto donde ocurrió el error
+     * @return AuditLog completo listo para registrar
+     */
+    public static AuditLog createErrorLog(TransferCommand command, Exception ex, String context) {
+        return createAuditLog(command, AuditMessageType.ERROR)
+                .payload(exceptionToJson(ex, context))
+                .estado("ERROR")
+                .detalleError(ex.getMessage())
+                .build();
     }
 }
