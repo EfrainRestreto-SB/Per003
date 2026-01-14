@@ -63,13 +63,10 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
      * Ejecuta una operación de transferencia/compensación.
      * 
      * <p>
-     * Este método procesa un comando de transferencia, ejecutando la lógica de negocio
-     * necesaria para realizar la compensación entre cuentas. El método registra logs
-     * de auditoría al inicio y fin de la operación.
+     * Este método orquesta el flujo completo de una transferencia: validación,
+     * auditoría de entrada, enrutamiento al servicio correspondiente según el concepto,
+     * recolección de métricas, auditoría de salida y manejo de errores.
      * </p>
-     * 
-     * <p><b>Nota:</b> Actualmente, este método devuelve un resultado simulado.
-     * La implementación real de la lógica de negocio está pendiente.</p>
      * 
      * @param command el comando que contiene los datos necesarios para ejecutar la transferencia,
      *                incluyendo identificador de transacción, tipo de concepto, monto,
@@ -78,6 +75,7 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
      *         el comprobante generado, fecha/hora del movimiento, monto procesado
      *         y estado de la transacción.
      * @throws IllegalArgumentException si el comando es {@code null} o contiene datos inválidos
+     * @throws RuntimeException si ocurre un error durante el procesamiento de la transferencia
      * @see TransferCommand
      * @see TransferResult
      */
@@ -85,78 +83,154 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
     @Timed(value = "transfer.time", description = "Tiempo de ejecución de transferencias", percentiles = {0.5, 0.95, 0.99})
     @Counted(value = "transfer.total", description = "Contador total de transferencias")
     public TransferResult transfer(TransferCommand command) {
+        logTransferStart(command);
+        
+        validateRequest(command);
+        auditEntryRequest(command);
+        
+        try {
+            TransferResult result = routeAndProcessTransfer(command);
+            
+            recordSuccessMetrics(command.getCodTipoConcepto(), command.getValMonto());
+            logTransferCompletion(result);
+            auditSuccessResponse(command, result);
+            
+            return result;
+            
+        } catch (Exception e) {
+            handleTransferError(command, e);
+            throw e;
+        }
+    }
+    
+    /**
+     * Registra el inicio de la transferencia en los logs.
+     */
+    private void logTransferStart(TransferCommand command) {
         LOG.info("Ejecutando transferencia - idTransaccion={}, canal={}, concepto={}, monto={}", 
                  command.getIdTransaccion(),
                  command.getCanal(),
                  command.getCodTipoConcepto(), 
                  command.getValMonto());
-        
-        // VALIDACIÓN: Solo permitir canal 81 + COBPER en desarrollo
+    }
+    
+    /**
+     * Valida el request utilizando el validador de canal-concepto.
+     */
+    private void validateRequest(TransferCommand command) {
         channelConceptValidator.validate(command);
-        
-        // 1. AUDITORÍA ENTRADA - Registrar request recibido
+    }
+    
+    /**
+     * Registra auditoría del request entrante.
+     */
+    private void auditEntryRequest(TransferCommand command) {
         auditPort.logAsync(AuditUtils.createEntradaLog(command, command));
+    }
+    
+    /**
+     * Enruta y procesa la transferencia según el concepto.
+     * 
+     * @param command el comando de transferencia
+     * @return el resultado de la transferencia
+     */
+    private TransferResult routeAndProcessTransfer(TransferCommand command) {
+        String concepto = command.getCodTipoConcepto();
         
-        TransferResult result = null;
-        
-        try {
-            // Determinar servicio destino según el concepto
-            String concepto = command.getCodTipoConcepto();
-            
-            if (TransactionConstants.ConceptType.COBPER.equals(concepto)) {
-                // Cobro de membresía - PER001 (AS/400)
-                LOG.info("Routing a PER001 (AS/400) para concepto COBPER");
-                
-                // Métrica: incrementar contador de llamadas PER001
-                meterRegistry.counter("per001.calls", "concept", TransactionConstants.ConceptType.COBPER).increment();
-                
-                // AUDITORÍA TRAMA_OUT - Registrar invocación a PER001
-                auditPort.logAsync(AuditUtils.createTramaOutLog(command, command));
-                
-                // Invocar programa RPG PER001
-                result = per001Service.processMembershipPayment(command);
-                
-                // AUDITORÍA TRAMA_IN - Registrar respuesta de PER001
-                auditPort.logAsync(AuditUtils.createTramaInLog(command, result));
-                
-            } else {
-                // Otros conceptos (TRCPRO, TRCTER, etc.) - usar lógica simulada por ahora
-                LOG.warn("Concepto {} no implementado, usando respuesta simulada", concepto);
-                
-                // Métrica: incrementar contador de conceptos no implementados
-                meterRegistry.counter("transfer.simulated", "concept", concepto).increment();
-                
-                result = buildSimulatedResult(command);
-            }
-            
-            // Métrica: incrementar contador de transferencias exitosas por concepto
-            meterRegistry.counter("transfer.success", "concept", concepto).increment();
-            
-            // Métrica: registrar monto de la transacción
-            meterRegistry.summary("transfer.amount", "concept", concepto)
-                    .record(command.getValMonto().doubleValue());
-            
-            LOG.info("Transferencia completada - comprobante={}", result.getValNumeroComprobante());
-            
-            // 2. AUDITORÍA SALIDA - Registrar response exitoso
-            auditPort.logAsync(AuditUtils.createSalidaLog(command, result));
-            
-            return result;
-            
-        } catch (Exception e) {
-            LOG.error("Error en transferencia - idTransaccion={}", command.getIdTransaccion(), e);
-            
-            // Métrica: incrementar contador de errores por tipo de concepto
-            String concepto = command.getCodTipoConcepto();
-            meterRegistry.counter("transfer.error", 
-                    "concept", concepto,
-                    "exception", e.getClass().getSimpleName()).increment();
-            
-            // 3. AUDITORÍA ERROR - Registrar excepción
-            auditPort.logAsync(AuditUtils.createErrorLog(command, e, "OrqCompensacionUsecaseImpl.transfer"));
-            
-            throw e;
+        if (TransactionConstants.ConceptType.COBPER.equals(concepto)) {
+            return processCoberPerConcept(command);
+        } else {
+            return processUnsupportedConcept(command, concepto);
         }
+    }
+    
+    /**
+     * Procesa el concepto COBPER (Cobro de Membresía) invocando PER001 en AS/400.
+     * 
+     * @param command el comando de transferencia
+     * @return el resultado de la transferencia desde PER001
+     */
+    private TransferResult processCoberPerConcept(TransferCommand command) {
+        LOG.info("Routing a PER001 (AS/400) para concepto COBPER");
+        
+        // Métrica: incrementar contador de llamadas PER001
+        meterRegistry.counter("per001.calls", "concept", TransactionConstants.ConceptType.COBPER).increment();
+        
+        // AUDITORÍA TRAMA_OUT - Registrar invocación a PER001
+        auditPort.logAsync(AuditUtils.createTramaOutLog(command, command));
+        
+        // Invocar programa RPG PER001
+        TransferResult result = per001Service.processMembershipPayment(command);
+        
+        // AUDITORÍA TRAMA_IN - Registrar respuesta de PER001
+        auditPort.logAsync(AuditUtils.createTramaInLog(command, result));
+        
+        return result;
+    }
+    
+    /**
+     * Procesa conceptos no soportados retornando una respuesta simulada.
+     * 
+     * @param command el comando de transferencia
+     * @param concepto el tipo de concepto no soportado
+     * @return un resultado simulado
+     */
+    private TransferResult processUnsupportedConcept(TransferCommand command, String concepto) {
+        LOG.warn("Concepto {} no implementado, usando respuesta simulada", concepto);
+        
+        // Métrica: incrementar contador de conceptos no implementados
+        meterRegistry.counter("transfer.simulated", "concept", concepto).increment();
+        
+        return buildSimulatedResult(command);
+    }
+    
+    /**
+     * Registra métricas de éxito de la transferencia.
+     * 
+     * @param concepto el tipo de concepto procesado
+     * @param monto el monto de la transferencia
+     */
+    private void recordSuccessMetrics(String concepto, BigDecimal monto) {
+        // Métrica: incrementar contador de transferencias exitosas por concepto
+        meterRegistry.counter("transfer.success", "concept", concepto).increment();
+        
+        // Métrica: registrar monto de la transacción
+        meterRegistry.summary("transfer.amount", "concept", concepto)
+                .record(monto.doubleValue());
+    }
+    
+    /**
+     * Registra la finalización exitosa de la transferencia en los logs.
+     */
+    private void logTransferCompletion(TransferResult result) {
+        LOG.info("Transferencia completada - comprobante={}", result.getValNumeroComprobante());
+    }
+    
+    /**
+     * Registra auditoría del response exitoso.
+     */
+    private void auditSuccessResponse(TransferCommand command, TransferResult result) {
+        auditPort.logAsync(AuditUtils.createSalidaLog(command, result));
+    }
+    
+    /**
+     * Maneja errores durante el procesamiento de la transferencia.
+     * Registra logs, métricas y auditoría de error.
+     * 
+     * @param command el comando de transferencia
+     * @param e la excepción ocurrida
+     */
+    private void handleTransferError(TransferCommand command, Exception e) {
+        LOG.error("Error en transferencia - idTransaccion={}", command.getIdTransaccion(), e);
+        
+        // Métrica: incrementar contador de errores por tipo de concepto
+        String concepto = command.getCodTipoConcepto();
+        meterRegistry.counter("transfer.error", 
+                "concept", concepto,
+                "exception", e.getClass().getSimpleName()).increment();
+        
+        // Auditoría: registrar excepción
+        auditPort.logAsync(AuditUtils.createErrorLog(command, e, "OrqCompensacionUsecaseImpl.transfer"));
     }
     
     private TransferResult buildSimulatedResult(TransferCommand command) {
