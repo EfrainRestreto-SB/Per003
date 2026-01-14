@@ -23,14 +23,14 @@ import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 
 /**
- * Adapter para invocar el programa RPG PER001 en AS/400.
+ * Adapter para invocar el CL PER001P en AS/400.
  * Implementa el port Per001ServicePort utilizando la biblioteca jt400.
  * 
- * <p>El programa PER001 se encarga del cobro de membresías (COBPER) y retorna:
- * - Número de comprobante
- * - Secuencial de operación
- * - Fecha/hora del movimiento
- * - Códigos de respuesta
+ * <p>El CL PER001P recibe dos parámetros:
+ * - pinHeader (226 chars): Información de contexto y sesión
+ * - pinBody (50 chars): Datos de la operación (identificación y producto)
+ * 
+ * <p>El CL ejecuta el programa RPG PER001 y retorna el resultado.
  * 
  * <p>La configuración de conexión se inyecta desde application.yml mediante
  * MicroProfile Config, permitiendo override con variables de entorno.
@@ -128,76 +128,153 @@ public class Per001As400Adapter implements Per001ServicePort {
     }
 
     /**
-     * Construye los parámetros de entrada/salida para el programa PER001.
+     * Construye los parámetros de entrada/salida para el CL PER001P.
      * 
-     * Estructura aproximada (ajustar según especificación RPG real):
-     * - P1 (IN): Tipo identificación (10 chars)
-     * - P2 (IN): Número identificación (20 chars)
-     * - P3 (IN): Tipo producto (10 chars)
-     * - P4 (IN): Número producto (20 chars)
-     * - P5 (IN): Monto (15 packed decimal)
-     * - P6 (IN): Moneda (3 chars)
-     * - P7 (IN): Concepto (10 chars)
-     * - P8 (OUT): Comprobante (20 chars)
-     * - P9 (OUT): Secuencial (10 chars)
-     * - P10 (OUT): Código respuesta (5 chars)
-     * - P11 (OUT): Mensaje respuesta (100 chars)
+     * Estructura de parámetros:
+     * - P1 (IN/OUT): pinHeader (264 bytes) - OUTHEADER: ACEPTABM(1) + ERROR(8) + MENSAJER(255)
+     * - P2 (IN/OUT): pinBody (54 bytes) - OUTBODY: ONUMCOM(10) + OMONDEB(15) + OMONEDA(4) + OFECHOR(25)
+     * 
+     * Entrada pinHeader (264 bytes):
+     * - servicio (15 chars)
+     * - idTransaccion (50 chars)
+     * - idSesion (50 chars)
+     * - fechaHora (26 chars)
+     * - canalAtencion (2 chars)
+     * - pais (2 chars)
+     * - usuario (10 chars)
+     * - idioma (2 chars)
+     * - ip (15 chars)
+     * - filler (92 chars) para completar 264 bytes
+     * 
+     * Entrada pinBody (54 bytes):
+     * - tipoIdentificacion (2 chars)
+     * - numeroIdentificacion (12 chars)
+     * - tipoProducto (4 chars)
+     * - numeroProducto (12 chars)
+     * - filler (24 chars) para completar 54 bytes
      */
     private ProgramParameter[] buildPer001Parameters(AS400 as400, TransferCommand command) {
+        // Construir pinHeader (226 chars)
+        String pinHeader = buildInHeader(
+                nvl(command.getNombreOperacion(), "SERVICIO_TEST"),              // servicio (15)
+                nvl(command.getIdTransaccion(), ""),                              // idTransaccion (50)
+                nvl(command.getIdSesion(), ""),                                   // idSesion (50)
+                OffsetDateTime.now().toString(),                                  // fechaHora (26)
+                String.valueOf(command.getCanal() != null ? command.getCanal() : 0),  // canalAtencion (2)
+                nvl(command.getCodPais(), "PA"),                                  // pais (2)
+                nvl(command.getUsuario(), "SYSTEM"),                              // usuario (10)
+                nvl(command.getCodIdioma(), "ES"),                                // idioma (2)
+                nvl(command.getValOrigen(), "0.0.0.0")                            // ip (15)
+        );
+        
+        // Construir pinBody (50 chars)
+        String pinBody = buildInBody(
+                nvl(command.getCodTipoIdentificacion(), ""),    // tipoIdentificacion (2)
+                nvl(command.getValNumeroIdentificacion(), ""),  // numeroIdentificacion (12)
+                nvl(command.getCodTipoProducto(), ""),          // tipoProducto (4)
+                nvl(command.getValNumeroProducto(), "")         // numeroProducto (12)
+        );
+
+        LOGGER.debug("pinHeader construido (264 bytes): '{}'", pinHeader);
+        LOGGER.debug("pinBody construido (54 bytes): '{}'", pinBody);
+
         // Convertidores de texto AS/400 (EBCDIC)
-        AS400Text text10 = new AS400Text(10, as400.getCcsid());
-        AS400Text text20 = new AS400Text(20, as400.getCcsid());
-        AS400Text text3 = new AS400Text(3, as400.getCcsid());
-        AS400Text text5 = new AS400Text(5, as400.getCcsid());
-        AS400Text text100 = new AS400Text(100, as400.getCcsid());
+        AS400Text text264 = new AS400Text(264, as400.getCcsid());
+        AS400Text text54 = new AS400Text(54, as400.getCcsid());
 
-        // Parámetros de entrada
-        byte[] p1TipoIdent = text10.toBytes(nvl(command.getCodTipoIdentificacion(), ""));
-        byte[] p2NumIdent = text20.toBytes(nvl(command.getValNumeroIdentificacion(), ""));
-        byte[] p3TipoProd = text10.toBytes(nvl(command.getCodTipoProducto(), ""));
-        byte[] p4NumProd = text20.toBytes(nvl(command.getValNumeroProducto(), ""));
-        byte[] p5Monto = formatAmount(command.getValMonto());
-        byte[] p6Moneda = text3.toBytes(nvl(command.getCodMonedaProducto(), "USD"));
-        byte[] p7Concepto = text10.toBytes(nvl(command.getCodTipoConcepto(), TransactionConstants.ConceptType.COBPER));
-
-        // Parámetros de salida (inicializados vacíos)
-        byte[] p8Comprobante = new byte[20];
-        byte[] p9Secuencial = new byte[10];
-        byte[] p10CodRespuesta = new byte[5];
-        byte[] p11MsgRespuesta = new byte[100];
+        // Parámetros IN/OUT (ajustar a tamaños de OUTHEADER y OUTBODY)
+        byte[] p1Header = text264.toBytes(padRight(pinHeader, 264));
+        byte[] p2Body = text54.toBytes(padRight(pinBody, 54));
 
         return new ProgramParameter[]{
-                new ProgramParameter(p1TipoIdent),              // IN
-                new ProgramParameter(p2NumIdent),               // IN
-                new ProgramParameter(p3TipoProd),               // IN
-                new ProgramParameter(p4NumProd),                // IN
-                new ProgramParameter(p5Monto),                  // IN
-                new ProgramParameter(p6Moneda),                 // IN
-                new ProgramParameter(p7Concepto),               // IN
-                new ProgramParameter(p8Comprobante),            // OUT
-                new ProgramParameter(p9Secuencial),             // OUT
-                new ProgramParameter(p10CodRespuesta),          // OUT
-                new ProgramParameter(p11MsgRespuesta)           // OUT
+                new ProgramParameter(p1Header, 264),    // IN/OUT: OUTHEADER (264 bytes)
+                new ProgramParameter(p2Body, 54)        // IN/OUT: OUTBODY (54 bytes)
         };
+    }
+    
+    /**
+     * Construye el header de entrada para PER001P (264 bytes).
+     */
+    private String buildInHeader(String servicio, String idTransaccion, String idSesion,
+                                  String fechaHora, String canalAtencion, String pais,
+                                  String usuario, String idioma, String ip) {
+        StringBuilder header = new StringBuilder();
+        header.append(padRight(servicio, 15));          // servicio (15)
+        header.append(padRight(idTransaccion, 50));     // idTransaccion (50)
+        header.append(padRight(idSesion, 50));          // idSesion (50)
+        header.append(padRight(fechaHora, 26));         // fechaHora (26)
+        header.append(padRight(canalAtencion, 2));      // canalAtencion (2)
+        header.append(padRight(pais, 2));               // pais (2)
+        header.append(padRight(usuario, 10));           // usuario (10)
+        header.append(padRight(idioma, 2));             // idioma (2)
+        header.append(padRight(ip, 15));                // ip (15)
+        header.append(padRight("", 92));                // filler (92) para 264 total
+        return header.toString();
+    }
+    
+    /**
+     * Construye el body de entrada para PER001P (54 bytes).
+     */
+    private String buildInBody(String tipoIdentificacion, String numeroIdentificacion,
+                                String tipoProducto, String numeroProducto) {
+        StringBuilder body = new StringBuilder();
+        body.append(padRight(tipoIdentificacion, 2));   // tipoIdentificacion (2)
+        body.append(padRight(numeroIdentificacion, 12)); // numeroIdentificacion (12)
+        body.append(padRight(tipoProducto, 4));         // tipoProducto (4)
+        body.append(padRight(numeroProducto, 12));      // numeroProducto (12)
+        body.append(padRight("", 24));                  // filler (24) para 54 total
+        return body.toString();
+    }
+    
+    /**
+     * Rellena string con espacios a la derecha hasta alcanzar la longitud especificada.
+     */
+    private String padRight(String str, int length) {
+        if (str == null) {
+            str = "";
+        }
+        if (str.length() >= length) {
+            return str.substring(0, length);
+        }
+        return String.format("%-" + length + "s", str);
     }
 
     /**
-     * Parsea la respuesta exitosa del programa PER001.
+     * Parsea la respuesta exitosa del CL PER001P.
+     * 
+     * El CL retorna los parámetros actualizados:
+     * - OUTHEADER: ACEPTABM(1) + ERROR(8) + MENSAJER(255) = 264 bytes
+     * - OUTBODY: ONUMCOM(10) + OMONDEB(15) + OMONEDA(4) + OFECHOR(25) = 54 bytes
      */
     private TransferResult parseSuccessResponse(ProgramParameter[] parameters, TransferCommand command) {
-        AS400Text text20 = new AS400Text(20, 37); // CCSID 37 = EBCDIC US/Canada
-        AS400Text text10 = new AS400Text(10, 37);
-        AS400Text text5 = new AS400Text(5, 37);
-        AS400Text text100 = new AS400Text(100, 37);
+        byte[] headerData = parameters[0].getOutputData();
+        byte[] bodyData = parameters[1].getOutputData();
 
-        // Extraer parámetros de salida
-        String comprobante = ((String) text20.toObject(parameters[7].getOutputData())).trim();
-        String secuencial = ((String) text10.toObject(parameters[8].getOutputData())).trim();
-        String codRespuesta = ((String) text5.toObject(parameters[9].getOutputData())).trim();
-        String msgRespuesta = ((String) text100.toObject(parameters[10].getOutputData())).trim();
+        // Parsear OUTHEADER (posiciones 1-based en RPG, 0-based en Java)
+        AS400Text textAceptabm = new AS400Text(1, 37);
+        AS400Text textError = new AS400Text(8, 37);
+        AS400Text textMensajer = new AS400Text(255, 37);
 
-        LOGGER.debug("Respuesta PER001 - comprobante={}, secuencial={}, cod={}, msg={}",
-                comprobante, secuencial, codRespuesta, msgRespuesta);
+        String aceptabm = ((String) textAceptabm.toObject(headerData, 0)).trim();
+        String errorCode = ((String) textError.toObject(headerData, 1)).trim();
+        String mensajer = ((String) textMensajer.toObject(headerData, 9)).trim();
+
+        LOGGER.debug("OUTHEADER - ACEPTABM='{}', ERROR='{}', MENSAJER='{}'", 
+                     aceptabm, errorCode, mensajer);
+
+        // Parsear OUTBODY (posiciones 1-based en RPG, 0-based en Java)
+        AS400Text textOnumcom = new AS400Text(10, 37);
+        AS400Text textOmondeb = new AS400Text(15, 37);
+        AS400Text textOmoneda = new AS400Text(4, 37);
+        AS400Text textOfechor = new AS400Text(25, 37);
+
+        String onumcom = ((String) textOnumcom.toObject(bodyData, 0)).trim();
+        String omondeb = ((String) textOmondeb.toObject(bodyData, 10)).trim();
+        String omoneda = ((String) textOmoneda.toObject(bodyData, 25)).trim();
+        String ofechor = ((String) textOfechor.toObject(bodyData, 29)).trim();
+
+        LOGGER.debug("OUTBODY - ONUMCOM='{}', OMONDEB='{}', OMONEDA='{}', OFECHOR='{}'",
+                     onumcom, omondeb, omoneda, ofechor);
 
         // Construir resultado
         TransferResult result = new TransferResult();
@@ -205,23 +282,39 @@ public class Per001As400Adapter implements Per001ServicePort {
         // DataHeader
         result.setNombreOperacion(command.getNombreOperacion());
         result.setTotal(command.getTotal());
-        result.setCaracterAceptacion("S"); // Éxito
+        result.setCaracterAceptacion(aceptabm);
         result.setUltimoMensaje((short) 1);
         result.setIdTransaccion(command.getIdTransaccion());
-        result.setCodMsgRespuesta(parseInteger(codRespuesta, 0));
-        result.setMsgRespuesta(msgRespuesta);
+        result.setCodMsgRespuesta(parseInteger(errorCode, 0));
+        result.setMsgRespuesta(mensajer);
 
         // Data
-        result.setValNumeroComprobante(comprobante);
-        result.setValSecuencial(parseLong(secuencial, 0L));
-        result.setFecHoraMovimiento(OffsetDateTime.now()); // Timestamp actual
+        result.setValNumeroComprobante(onumcom);
+        result.setValSecuencial(0L); // No hay secuencial en OUTBODY
+        result.setFecHoraMovimiento(parseDateTime(ofechor));
         result.setValMonto(command.getValMonto());
-        result.setCostoDeLaTransaccion(BigDecimal.ZERO); // PER001 no retorna costos
+        result.setCostoDeLaTransaccion(BigDecimal.ZERO);
         result.setValTasaCambio(command.getValTasaCambio());
         result.setValMontoDestino(command.getValMontoDestino());
-        result.setCodMonedaTransaccion(command.getCodMonedaProducto());
+        result.setCodMonedaTransaccion(omoneda.isEmpty() ? command.getCodMonedaProducto() : omoneda);
 
         return result;
+    }
+
+    /**
+     * Parsea fecha/hora en formato AS/400 a OffsetDateTime.
+     */
+    private OffsetDateTime parseDateTime(String fechaHora) {
+        if (fechaHora == null || fechaHora.isEmpty()) {
+            return OffsetDateTime.now();
+        }
+        try {
+            // Intentar parsear formato ISO-8601 u otro formato común
+            return OffsetDateTime.parse(fechaHora);
+        } catch (Exception e) {
+            LOGGER.debug("No se pudo parsear fechaHora '{}', usando timestamp actual", fechaHora);
+            return OffsetDateTime.now();
+        }
     }
 
     /**

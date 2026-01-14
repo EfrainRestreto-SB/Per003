@@ -5,7 +5,7 @@ as400:
   password: ${AS400_PASSWORD:PANAMA1}
   library: ${AS400_LIBRARY:DAAUSRLIB}
   program:
-    per001: ${AS400_PROGRAM_PER001:PER001}
+    per001: ${AS400_PROGRAM_PER001:PER001P}  # CL que ejecuta el programa PER001
 
 quarkus:
   datasource:
