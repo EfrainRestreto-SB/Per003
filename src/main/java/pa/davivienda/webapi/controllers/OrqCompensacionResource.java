@@ -23,6 +23,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import pa.davivienda.transversal.constants.TransactionConstants;
 import jakarta.ws.rs.core.Response;
 import pa.davivienda.application.commands.TransferCommand;
 import pa.davivienda.application.results.TransferResult;
@@ -210,7 +211,7 @@ public class OrqCompensacionResource {
         } catch (BadRequestException bre) {
             LOG.warn("Validación de headers fallida - idTransaccion={}, error={}", correlationId, bre.getMessage());
             ErrorResponse err = new ErrorResponse();
-            err.setCaracterAceptacion("M");
+            err.setCaracterAceptacion(TransactionConstants.AcceptanceCode.ERROR);
             err.setCodMsgRespuesta(400);
             err.setMsgRespuesta(bre.getMessage());
             err.setIdTransaccion(correlationId);

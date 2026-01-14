@@ -2,6 +2,7 @@ package pa.davivienda.application.validators;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import pa.davivienda.transversal.constants.TransactionConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pa.davivienda.application.commands.TransferCommand;
@@ -141,7 +142,7 @@ public class ChannelConceptValidator {
     private boolean validateChannelForConcept(Short canal, String concepto, ConceptProgramConfig mapping) {
         // Solo canal 81 habilitado - Solo COBPER
         if (canal == 81) {
-            return "COBPER".equalsIgnoreCase(concepto);
+            return TransactionConstants.ConceptType.COBPER.equalsIgnoreCase(concepto);
         }
         
         // Otros canales: En desarrollo

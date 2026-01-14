@@ -19,6 +19,7 @@ import pa.davivienda.domain.enums.AuditMessageType;
 import pa.davivienda.domain.interfaces.usecases.OrqCompensacionService;
 import pa.davivienda.domain.ports.output.AuditPort;
 import pa.davivienda.domain.ports.output.Per001ServicePort;
+import pa.davivienda.transversal.constants.TransactionConstants;
 import pa.davivienda.transversal.utils.AuditUtils;
 
 /**
@@ -112,12 +113,12 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
             // Determinar servicio destino según el concepto
             String concepto = command.getCodTipoConcepto();
             
-            if ("COBPER".equals(concepto)) {
+            if (TransactionConstants.ConceptType.COBPER.equals(concepto)) {
                 // Cobro de membresía - PER001 (AS/400)
                 LOG.info("Routing a PER001 (AS/400) para concepto COBPER");
                 
                 // Métrica: incrementar contador de llamadas PER001
-                meterRegistry.counter("per001.calls", "concept", "COBPER").increment();
+                meterRegistry.counter("per001.calls", "concept", TransactionConstants.ConceptType.COBPER).increment();
                 
                 // AUDITORÍA TRAMA_OUT - Registrar invocación a PER001
                 auditPort.logAsync(AuditLog.builder()
@@ -207,7 +208,7 @@ public class OrqCompensacionUsecaseImpl implements OrqCompensacionService {
         // Header
         result.setNombreOperacion(command.getNombreOperacion());
         result.setTotal(command.getTotal());
-        result.setCaracterAceptacion("B"); // B = OK
+        result.setCaracterAceptacion(TransactionConstants.AcceptanceCode.SUCCESS); // B = OK
         result.setUltimoMensaje((short) 0);
         result.setIdTransaccion(command.getIdTransaccion());
         result.setCodMsgRespuesta(0);

@@ -5,6 +5,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pa.davivienda.domain.models.ConceptProgramConfig;
+import pa.davivienda.transversal.constants.TransactionConstants;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -45,7 +46,7 @@ public class ConceptProgramMappingConfig {
      */
     private void loadMappings() {
         // COBPER - Cobro de Membresía (IMPLEMENTADO)
-        addMapping("COBPER", "01PAR157", "Cobro de Membresía", "PER001", true);
+        addMapping(TransactionConstants.ConceptType.COBPER, "01PAR157", "Cobro de Membresía", "PER001", true);
 
         // TRCPRO - Transferencias a cuentas propias (PENDIENTE)
         addMapping("TRCPRO", "01PAR153", "Trx a cuentas propias", "PER004", false);

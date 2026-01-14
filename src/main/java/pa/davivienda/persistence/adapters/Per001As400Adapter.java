@@ -1,6 +1,7 @@
 package pa.davivienda.persistence.adapters;
 
 import com.ibm.as400.access.AS400;
+import pa.davivienda.transversal.constants.TransactionConstants;
 import com.ibm.as400.access.AS400Message;
 import com.ibm.as400.access.AS400Text;
 import com.ibm.as400.access.ProgramCall;
@@ -131,7 +132,7 @@ public class Per001As400Adapter implements Per001ServicePort {
         byte[] p4NumProd = text20.toBytes(nvl(command.getValNumeroProducto(), ""));
         byte[] p5Monto = formatAmount(command.getValMonto());
         byte[] p6Moneda = text3.toBytes(nvl(command.getCodMonedaProducto(), "USD"));
-        byte[] p7Concepto = text10.toBytes(nvl(command.getCodTipoConcepto(), "COBPER"));
+        byte[] p7Concepto = text10.toBytes(nvl(command.getCodTipoConcepto(), TransactionConstants.ConceptType.COBPER));
 
         // Parámetros de salida (inicializados vacíos)
         byte[] p8Comprobante = new byte[20];
