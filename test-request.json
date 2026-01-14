@@ -1,0 +1,15 @@
+﻿{
+  "NombredelServicio": "TransferenciaService",
+  "Data": {
+    "codTipoIdentificacion": "CC",
+    "valNumeroIdentificacion": "987654321",
+    "codTipoProducto": "AHO",
+    "valNumeroProducto": "1234567890",
+    "codMonedaProducto": "USD",
+    "codTipoMovimiento": "DBT",
+    "valMonto": 100.00,
+    "codMonedaDestino": "USD",
+    "codTipoConcepto": "COBPER",
+    "valDescripcion": "Test"
+  }
+}
