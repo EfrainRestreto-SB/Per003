@@ -1,27 +1,67 @@
 package pa.davivienda.application.validators;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import pa.davivienda.application.commands.TransferCommand;
 import pa.davivienda.domain.exceptions.InvalidChannelConceptException;
+import pa.davivienda.domain.models.ConceptProgramConfig;
+import pa.davivienda.transversal.config.ConceptProgramMappingConfig;
 
 /**
  * Test unitarios para {@link ChannelConceptValidator}.
  */
+@ExtendWith(MockitoExtension.class)
 @DisplayName("ChannelConceptValidator - Tests de validación canal-concepto")
 class ChannelConceptValidatorTest {
     
+    @Mock
+    private ConceptProgramMappingConfig mappingConfig;
+    
+    @InjectMocks
     private ChannelConceptValidator validator;
     
     @BeforeEach
     void setUp() {
-        validator = new ChannelConceptValidator();
+        // Mock para COBPER - concepto implementado
+        ConceptProgramConfig cobperConfig = new ConceptProgramConfig(
+            "COBPER",
+            "COBPER",
+            "Cobro de membresía",
+            "PER001",
+            true
+        );
+        
+        // Configurar comportamiento del mock
+        lenient().when(mappingConfig.findImplementedConfig("COBPER"))
+                .thenReturn(Optional.of(cobperConfig));
+        lenient().when(mappingConfig.findImplementedConfig("cobper"))
+                .thenReturn(Optional.of(cobperConfig));
+        lenient().when(mappingConfig.findImplementedConfig("CobPer"))
+                .thenReturn(Optional.of(cobperConfig));
+        
+        lenient().when(mappingConfig.findImplementedConfig("TRCPRO"))
+                .thenReturn(Optional.empty()); // No implementado
+        lenient().when(mappingConfig.findImplementedConfig("TRCTER"))
+                .thenReturn(Optional.empty()); // No implementado
+        lenient().when(mappingConfig.findImplementedConfig("TININD"))
+                .thenReturn(Optional.empty()); // No implementado
+        
+        lenient().when(mappingConfig.getProgramForConcept("COBPER"))
+                .thenReturn(Optional.of("PER001"));
     }
     
     @Test
@@ -48,7 +88,7 @@ class ChannelConceptValidatorTest {
         
         assertEquals((short) 151, exception.getCanal().shortValue());
         assertEquals("TRCPRO", exception.getConcepto());
-        assertTrue(exception.getMessage().contains("no permitida en desarrollo"));
+        assertTrue(exception.getMessage().contains("desarrollo"));
     }
     
     @Test
