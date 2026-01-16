@@ -54,8 +54,7 @@ public class Data {
 
     private String codTipoMotivo; // Solo para SV
 
-    @NotBlank(message = "valDescripcion es obligatorio")
-    private String valDescripcion;
+    private String valDescripcion; // Opcional (0..1)
 
     // Campos específicos de SV
     private String codParentescoBeneficiario;

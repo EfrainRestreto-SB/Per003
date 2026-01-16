@@ -21,7 +21,7 @@ public class RequestHeaders {
 
     @RestHeader("jornada")
     @NotNull(message = "Header jornada es obligatorio")
-    private Short jornada;
+    private Integer jornada;
 
     @RestHeader("canal")
     @NotNull(message = "Header canal es obligatorio")
@@ -54,8 +54,8 @@ public class RequestHeaders {
     public Integer getTotal() { return total; }
     public void setTotal(Integer total) { this.total = total; }
 
-    public Short getJornada() { return jornada; }
-    public void setJornada(Short jornada) { this.jornada = jornada; }
+    public Integer getJornada() { return jornada; }
+    public void setJornada(Integer jornada) { this.jornada = jornada; }
 
     public Short getCanal() { return canal; }
     public void setCanal(Short canal) { this.canal = canal; }

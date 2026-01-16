@@ -1,39 +1,145 @@
+# Configuración AS/400
+as400:
+  host: ${AS400_HOST:10.246.17.67}
+  username: ${AS400_USERNAME:DAADATAPER}
+  password: ${AS400_PASSWORD:PANAMA1}
+  library: ${AS400_LIBRARY:DAAUSRLIB}
+  program:
+    per001: ${AS400_PROGRAM_PER001:PER001P}  # CL que ejecuta el programa PER001
+
 quarkus:
   datasource:
-    db-kind: other                    # DB2 no soportado nativamente
-    db-version: 7.4.0                 # Versión real AS/400
-    username: DAADATAPER
-    password: PANAMA1
+    db-kind: other
+    username: ${DB_USERNAME:DAADATAPER}
+    password: ${DB_PASSWORD:PANAMA1}
     jdbc:
       driver: com.ibm.as400.access.AS400JDBCDriver
-      url: jdbc:as400://10.246.17.67;databaseName=HOWARD1;libraries=DAPCYFILES,PRESURLIB;naming=sql;errors=full;ccsid=1208;prompt=false;loginTimeout=60;blockSize=512
-      min-size: 2                        # Mínimo 2 conexiones
-      max-size: 10                       # Máximo 10 conexiones
+      url: jdbc:as400://10.246.17.67;databaseName=HOWARD1;naming=sql;errors=full;ccsid=1208;prompt=false;loginTimeout=60;blockSize=512
+      min-size: 0
+      max-size: 1
       acquisition-timeout: 60
       transaction-isolation-level: read-uncommitted
-      
-      # 🔑 CLAVE para jt400
+
+      # 🔑 CLAVE PARA jt400
       additional-jdbc-properties:
-        autocommit: true                 # Autocommit ON
+        autocommit: true
         connectionSharing: false
         holdability: close
 
+      # 🔴 DESACTIVAR TODA VALIDACIÓN
+      validate-on-borrow: false
+      validate-on-return: false
+      background-validation: false
+      validation-query: null
+
+  # 🔴 Narayana solo para casos puntuales
+  transaction-manager:
+    default-transaction-timeout: 30s
+
   hibernate-orm:
-    packages: org.acme.domain.entities
+    packages: pa.davivienda.domain.entities
     dialect: org.hibernate.dialect.DB2Dialect
+
+    # 🔴 Hibernate SOLO como ORM, NO como gestor DB
+    schema-management:
+      strategy: none
+
     database:
       version-check:
-        enabled: false                   # Deshabilitar validación versión
-    log:
-      sql: true
-      bind-parameters: true
-    schema-management:
-      strategy: none                     # NO modificar DB
+        enabled: false
+
+    validate-in-dev-mode: false
+
     jdbc:
-      statement-batch-size: 0            # Batch OFF (jt400 sensible)
+      statement-fetch-size: 20
+      statement-batch-size: 0   # 🔑 batch OFF (jt400 es sensible)
+
+    log:
+      sql: false
 
   log:
-    level: INFO
+    level: DEBUG
     console:
       enable: true
       format: "%d{HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n"
+    category:
+      "pa.davivienda":
+        level: DEBUG
+      "org.jboss.resteasy.reactive":
+        level: DEBUG
+      "io.quarkus.resteasy.reactive":
+        level: DEBUG
+      "jakarta.validation":
+        level: DEBUG
+      "io.agroal.pool":
+        level: ERROR
+      "io.quarkus.agroal":
+        level: ERROR
+
+  # Configuración de Swagger/OpenAPI
+  # Solo disponible en modo desarrollo, deshabilitado en producción
+  swagger-ui:
+    always-include: false              # No incluir en build de producción
+    enable: true                       # Habilitado por defecto en dev
+    path: /q/swagger-ui                # Ruta de acceso
+    
+  smallrye-openapi:
+    enable: true                       # OpenAPI habilitado
+    path: /q/openapi                   # Ruta del spec OpenAPI
+    info-title: "API Orquestación de Compensaciones PER003"
+    info-version: "1.0.0"
+    info-description: "API REST para orquestación de compensaciones y transferencias entre cuentas. Soporta múltiples operaciones: COBPER, TRCPRO, TRCTER, TININD"
+    info-contact-name: "Equipo Davivienda"
+    info-license-name: "Propietario"
+
+  # Health Checks
+  smallrye-health:
+    root-path: /q/health              # Endpoint principal de health checks
+    liveness-path: /q/health/live     # Health check de liveness (pod activo)
+    readiness-path: /q/health/ready   # Health check de readiness (pod listo)
+    ui:
+      always-include: true            # Incluir UI de health checks
+      root-path: /q/health-ui         # Ruta de la UI
+      
+  # Métricas y Observabilidad
+  micrometer:
+    enabled: true
+    export:
+      prometheus:
+        enabled: true
+        path: /q/metrics              # Endpoint de métricas Prometheus
+        default-registry: true
+    binder:
+      jvm: true                       # Métricas JVM (memoria, GC, threads)
+      system: true                    # Métricas del sistema (CPU, file descriptors)
+      http-server:
+        enabled: true                 # Métricas de requests HTTP
+        max-uri-tags: 100
+
+  # Fault Tolerance - Circuit Breaker, Retry, Timeout
+  fault-tolerance:
+    # Habilitar métricas de Circuit Breaker
+    metrics:
+      enabled: true
+    # Configuración global (puede ser sobreescrita por anotaciones)
+    circuit-breaker:
+      enabled: true
+    retry:
+      enabled: true
+    timeout:
+      enabled: true
+
+# Configuración específica de Circuit Breaker para Per001As400Adapter
+# (Las anotaciones en el código ya tienen la config, esto es solo referencia)
+# pa/davivienda/persistence/adapters/Per001As400Adapter/processMembershipPayment:
+#   CircuitBreaker:
+#     requestVolumeThreshold: 10    # Mínimo de requests para evaluar
+#     failureRatio: 0.5              # 50% de fallos abre el circuito
+#     delay: 30000                   # 30 segundos antes de pasar a half-open
+#     successThreshold: 2            # 2 éxitos consecutivos para cerrar circuito
+#   Retry:
+#     maxRetries: 3                  # Máximo 3 reintentos
+#     delay: 1000                    # 1 segundo entre reintentos
+#     jitter: 200                    # ±200ms de variación aleatoria
+#   Timeout:
+#     value: 10                      # 10 segundos de timeout

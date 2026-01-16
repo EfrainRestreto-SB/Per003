@@ -23,6 +23,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import pa.davivienda.transversal.constants.TransactionConstants;
 import jakarta.ws.rs.core.Response;
 import pa.davivienda.application.commands.TransferCommand;
 import pa.davivienda.application.results.TransferResult;
@@ -31,7 +32,9 @@ import pa.davivienda.domain.dtos.responses.ErrorResponse;
 import pa.davivienda.domain.dtos.responses.OrqResponse;
 import pa.davivienda.domain.interfaces.usecases.OrqCompensacionService;
 import pa.davivienda.webapi.dto.RequestHeaders;
+import pa.davivienda.webapi.exceptions.BadRequestException;
 import pa.davivienda.webapi.mappers.TransferMapper;
+import pa.davivienda.webapi.validators.InputHeadersPer003Validator;
 
 /**
  * Controlador REST para orquestación de compensaciones.
@@ -41,15 +44,15 @@ import pa.davivienda.webapi.mappers.TransferMapper;
  * 1. CAPA WEB API (este controlador):
  *    - Recibe OrqRequest (DTO REST) del cliente
  *    - Valida el payload usando Bean Validation (@Valid)
- *    - Usa TransferMapper (MapStruct) para convertir OrqRequest → TransferCommand
+ *    - Usa TransferMapper (MapStruct) para convertir OrqRequest a TransferCommand
  *    - Invoca el servicio de aplicación pasando TransferCommand
  *    - Recibe TransferResult del servicio
- *    - Usa TransferMapper para convertir TransferResult → OrqResponse
+ *    - Usa TransferMapper para convertir TransferResult a OrqResponse
  *    - Devuelve OrqResponse (DTO REST) al cliente
  * 
  * 2. MAPPER (TransferMapper):
  *    - Actúa como adaptador entre la capa web y la capa de aplicación
- *    - Convierte DTOs REST ↔ Commands/Results del dominio
+ *    - Convierte DTOs REST a/desde Commands/Results del dominio
  *    - Desacopla el contrato REST de la lógica de negocio
  * 
  * 3. CAPA DE APLICACIÓN (OrqCompensacionService):
@@ -60,7 +63,7 @@ import pa.davivienda.webapi.mappers.TransferMapper;
  * 
  * Beneficios de esta arquitectura:
  * - La lógica de negocio es testeable sin dependencias de frameworks web
- * - Podemos cambiar el protocolo (REST → gRPC, GraphQL) sin tocar la lógica
+ * - Podemos cambiar el protocolo (REST a gRPC, GraphQL) sin tocar la lógica
  * - Los Commands/Results son objetos puros del dominio, sin anotaciones de frameworks
  * - Cumple con el principio de inversión de dependencias (DIP)
  */
@@ -82,11 +85,11 @@ public class OrqCompensacionResource {
      * Endpoint principal para orquestación de compensaciones.
      *
      * Flujo del request:
-     * 1. Headers HTTP (RequestHeaders) + Body JSON (OrqRequest) → validación con @Valid
-     * 2. Headers + OrqRequest → TransferCommand (mapper)
-     * 3. TransferCommand → service.transfer() → TransferResult
-     * 4. TransferResult → OrqResponse (mapper)
-     * 5. OrqResponse → cliente
+     * 1. Headers HTTP (RequestHeaders) + Body JSON (OrqRequest) - validación con @Valid
+     * 2. Headers + OrqRequest - TransferCommand (mapper)
+     * 3. TransferCommand - service.transfer() - TransferResult
+     * 4. TransferResult - OrqResponse (mapper)
+     * 5. OrqResponse - cliente
      * 
      * El mapper (MapStruct) se encarga de la conversión automática entre:
      * - Headers HTTP (RequestHeaders): metadata del request (nombreOperacion, total, jornada, etc.)
@@ -142,15 +145,43 @@ public class OrqCompensacionResource {
             responseCode = "500",
             description = "Error interno del servidor",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+        ),
+        @APIResponse(
+            responseCode = "503",
+            description = "Servicio no disponible - Circuit Breaker activado o AS/400 inaccesible",
+            content = @Content(schema = @Schema(implementation = OrqResponse.class))
         )
     })
     public Response transfer(
-            @Valid RequestHeaders headers,
+            @org.jboss.resteasy.reactive.RestHeader("nombreOperacion") String nombreOperacion,
+            @org.jboss.resteasy.reactive.RestHeader("total") Integer total,
+            @org.jboss.resteasy.reactive.RestHeader("jornada") Integer jornada,
+            @org.jboss.resteasy.reactive.RestHeader("canal") Short canal,
+            @org.jboss.resteasy.reactive.RestHeader("modoDeOperacion") Short modoDeOperacion,
+            @org.jboss.resteasy.reactive.RestHeader("usuario") String usuario,
+            @org.jboss.resteasy.reactive.RestHeader("perfil") Short perfil,
+            @org.jboss.resteasy.reactive.RestHeader("versionServicio") String versionServicio,
+            @org.jboss.resteasy.reactive.RestHeader("idTransaccion") String idTransaccion,
             @Valid OrqRequest request) {
+        
+        // Construir RequestHeaders desde los parámetros individuales
+        RequestHeaders headers = new RequestHeaders();
+        headers.setNombreOperacion(nombreOperacion);
+        headers.setTotal(total);
+        headers.setJornada(jornada);
+        headers.setCanal(canal);
+        headers.setModoDeOperacion(modoDeOperacion);
+        headers.setUsuario(usuario);
+        headers.setPerfil(perfil);
+        headers.setVersionServicio(versionServicio);
+        headers.setIdTransaccion(idTransaccion);
         
         String correlationId = null;
         try {
-            // 1) Asegurar idTransaccion: si viene null, generar uno.
+            // 1) Validar headers HTTP usando validador personalizado PER003
+            InputHeadersPer003Validator.validateInputHeaders(headers);
+            
+            // 2) Asegurar idTransaccion: si viene null, generar uno.
             if (headers.getIdTransaccion() == null || headers.getIdTransaccion().isBlank()) {
                 correlationId = UUID.randomUUID().toString();
                 headers.setIdTransaccion(correlationId);
@@ -158,30 +189,48 @@ public class OrqCompensacionResource {
                 correlationId = headers.getIdTransaccion();
             }
 
-            // 2) Propagar correlationId en MDC (logs)
+            // 3) Propagar correlationId en MDC (logs)
             MDC.put("idTransaccion", correlationId);
             LOG.info("Inicio OrqCompensacion - transfer - idTransaccion={}, usuario={}, operacion={}", 
                      correlationId, headers.getUsuario(), headers.getNombreOperacion());
             
-            // 3) Convertir Headers HTTP + Body JSON → TransferCommand (comando de aplicación)
+            // 4) Convertir Headers HTTP + Body JSON a TransferCommand (comando de aplicación)
             //    Este mapper desacopla la estructura REST de la lógica de negocio
             TransferCommand command = mapper.toCommand(headers, request);
             LOG.debug("Request mapeado a comando - concepto={}, monto={}", 
                      command.getCodTipoConcepto(), command.getValMonto());
             
-            // 4) Llamada al servicio de aplicación (caso de uso) - abstracción hexagonal
+            // 5) Llamada al servicio de aplicación (caso de uso) - abstracción hexagonal
             //    El servicio no conoce nada sobre HTTP, JSON, headers o estructura REST
             TransferResult result = service.transfer(command);
             LOG.debug("Resultado obtenido del servicio - comprobante={}", 
                      result.getValNumeroComprobante());
             
-            // 5) Convertir TransferResult (resultado de aplicación) → OrqResponse (DTO REST)
+            // 6) Convertir TransferResult (resultado de aplicación) a OrqResponse (DTO REST)
             //    Este mapper reconstruye la estructura jerárquica esperada por el cliente REST
             OrqResponse response = mapper.toResponse(result);
 
             LOG.info("Fin OrqCompensacion - transfer - idTransaccion={}", correlationId);
 
+            // 7) Retornar código HTTP apropiado según resultado de la operación
+            //    Si caracterAceptacion = "E" (error) y hay código >= 500: Service Unavailable
+            if ("E".equals(result.getCaracterAceptacion()) && 
+                result.getCodMsgRespuesta() != null && 
+                result.getCodMsgRespuesta() >= 500) {
+                LOG.warn("Servicio no disponible - Circuit Breaker o error AS/400 - idTransaccion={}, code={}", 
+                         correlationId, result.getCodMsgRespuesta());
+                return Response.status(Response.Status.SERVICE_UNAVAILABLE).entity(response).build();
+            }
+
             return Response.ok(response).build();
+        } catch (BadRequestException bre) {
+            LOG.warn("Validación de headers fallida - idTransaccion={}, error={}", correlationId, bre.getMessage());
+            ErrorResponse err = new ErrorResponse();
+            err.setCaracterAceptacion(TransactionConstants.AcceptanceCode.ERROR);
+            err.setCodMsgRespuesta(400);
+            err.setMsgRespuesta(bre.getMessage());
+            err.setIdTransaccion(correlationId);
+            return Response.status(Response.Status.BAD_REQUEST).entity(err).build();
         } catch (jakarta.validation.ValidationException ve) {
             LOG.warn("Validación inválida - idTransaccion={}", correlationId, ve);
             ErrorResponse err = ErrorResponse.fromValidation(ve, correlationId);
@@ -190,6 +239,10 @@ public class OrqCompensacionResource {
             LOG.warn("Petición incorrecta - idTransaccion={}", correlationId, iae);
             ErrorResponse err = ErrorResponse.fromMessage(400, iae.getMessage(), correlationId);
             return Response.status(Response.Status.BAD_REQUEST).entity(err).build();
+        } catch (pa.davivienda.domain.exceptions.InvalidChannelConceptException icce) {
+            // Re-lanzar para que el InvalidChannelConceptExceptionMapper la maneje
+            LOG.debug("Delegando InvalidChannelConceptException al mapper - idTransaccion={}", correlationId);
+            throw icce;
         } catch (Exception ex) {
             LOG.error("Error interno - idTransaccion={}", correlationId, ex);
             ErrorResponse err = ErrorResponse.fromMessage(500, "Error interno del servicio", correlationId);
