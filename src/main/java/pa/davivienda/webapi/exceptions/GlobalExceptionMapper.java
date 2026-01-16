@@ -25,7 +25,7 @@ public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
             WebApplicationException wae = (WebApplicationException) exception;
             int status = wae.getResponse().getStatus();
             
-            LOG.error("🔴 WebApplicationException capturada - Status {}: {}", status, exception.getMessage(), exception);
+            LOG.error("WebApplicationException capturada - Status {}: {}", status, exception.getMessage(), exception);
             
             ErrorResponse err = ErrorResponse.fromMessage(
                 status, 
@@ -37,7 +37,7 @@ public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
         }
         
         // Cualquier otra excepción
-        LOG.error("🔴 Excepción no manejada capturada:", exception);
+        LOG.error("Excepción no manejada capturada:", exception);
         
         ErrorResponse err = ErrorResponse.fromMessage(
             500, 

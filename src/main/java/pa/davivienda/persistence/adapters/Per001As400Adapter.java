@@ -410,15 +410,15 @@ public class Per001As400Adapter implements Per001ServicePort {
         result.setCodMsgRespuesta(parseInteger(errorCode, 0));
         result.setMsgRespuesta(mensajer);
 
-        // Data
+        // Data - Mapeo desde AS400
         result.setValNumeroComprobante(onumcom);
         result.setValSecuencial(0L); // No hay secuencial en OUTBODY
-        result.setFecHoraMovimiento(parseDateTime(ofechor));
-        result.setValMonto(command.getValMonto());
-        result.setCostoDeLaTransaccion(BigDecimal.ZERO);
-        result.setValTasaCambio(command.getValTasaCambio());
-        result.setValMontoDestino(command.getValMontoDestino());
-        result.setCodMonedaTransaccion(omoneda.isEmpty() ? command.getCodMonedaProducto() : omoneda);
+        result.setFecHoraMovimiento(parseDateTime(ofechor)); // OFECHOR de AS400
+        result.setValMonto(parseBigDecimal(omondeb, BigDecimal.ZERO)); // OMONDEB de AS400
+        result.setCostoDeLaTransaccion(null); // Retorna null según especificación
+        result.setValTasaCambio(null); // Retorna null según especificación
+        result.setValMontoDestino(null); // Retorna null según especificación
+        result.setCodMonedaTransaccion(omoneda.isEmpty() ? command.getCodMonedaProducto() : omoneda); // OMONEDA de AS400
 
         return result;
     }
@@ -500,6 +500,21 @@ public class Per001As400Adapter implements Per001ServicePort {
         try {
             return Long.parseLong(value.trim());
         } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Parsea un string a BigDecimal de forma segura.
+     */
+    private BigDecimal parseBigDecimal(String value, BigDecimal defaultValue) {
+        try {
+            if (value == null || value.trim().isEmpty()) {
+                return defaultValue;
+            }
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException e) {
+            LOGGER.debug("No se pudo parsear BigDecimal '{}', usando valor por defecto", value);
             return defaultValue;
         }
     }

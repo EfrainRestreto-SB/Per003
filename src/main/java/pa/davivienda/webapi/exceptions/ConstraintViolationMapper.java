@@ -16,7 +16,7 @@ public class ConstraintViolationMapper implements ExceptionMapper<ConstraintViol
 
     @Override
     public Response toResponse(ConstraintViolationException exception) {
-        LOG.error("❌ Error de validación capturado:", exception);
+        LOG.error("Error de validación capturado:", exception);
         ErrorResponse err = ErrorResponse.fromMessage(400, "Errores de validación", null);
         exception.getConstraintViolations().forEach(v -> {
             String error = v.getPropertyPath() + ": " + v.getMessage();

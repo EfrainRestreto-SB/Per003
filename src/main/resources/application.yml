@@ -20,19 +20,19 @@ quarkus:
       acquisition-timeout: 60
       transaction-isolation-level: read-uncommitted
 
-      # 🔑 CLAVE PARA jt400
+      # CLAVE PARA jt400
       additional-jdbc-properties:
         autocommit: true
         connectionSharing: false
         holdability: close
 
-      # 🔴 DESACTIVAR TODA VALIDACIÓN
+      # DESACTIVAR TODA VALIDACIÓN
       validate-on-borrow: false
       validate-on-return: false
       background-validation: false
       validation-query: null
 
-  # 🔴 Narayana solo para casos puntuales
+  # Narayana solo para casos puntuales
   transaction-manager:
     default-transaction-timeout: 30s
 
@@ -40,7 +40,7 @@ quarkus:
     packages: pa.davivienda.domain.entities
     dialect: org.hibernate.dialect.DB2Dialect
 
-    # 🔴 Hibernate SOLO como ORM, NO como gestor DB
+    # Hibernate SOLO como ORM, NO como gestor DB
     schema-management:
       strategy: none
 
@@ -52,7 +52,7 @@ quarkus:
 
     jdbc:
       statement-fetch-size: 20
-      statement-batch-size: 0   # 🔑 batch OFF (jt400 es sensible)
+      statement-batch-size: 0   # batch OFF (jt400 es sensible)
 
     log:
       sql: false
