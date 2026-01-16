@@ -14,15 +14,7 @@ quarkus:
     password: ${DB_PASSWORD:PANAMA1}
     jdbc:
       driver: com.ibm.as400.access.AS400JDBCDriver
-      url: jdbc:as400://10.246.17.67;
-        databaseName=HOWARD1;
-        libraries=DAPCYFILES,PRESURLIB;
-        naming=sql;
-        errors=full;
-        ccsid=1208;
-        prompt=false;
-        loginTimeout=60;
-        blockSize=512
+      url: jdbc:as400://10.246.17.67;databaseName=HOWARD1;naming=sql;errors=full;ccsid=1208;prompt=false;loginTimeout=60;blockSize=512
       min-size: 0
       max-size: 1
       acquisition-timeout: 60

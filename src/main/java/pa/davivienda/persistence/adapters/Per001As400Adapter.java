@@ -100,6 +100,9 @@ public class Per001As400Adapter implements Per001ServicePort {
             // Preparar parámetros de entrada para PER001
             ProgramParameter[] parameters = buildPer001Parameters(as400, command);
 
+            // Log de parámetros antes de ejecutar el CL
+            logParametersBeforeCall(parameters);
+
             // Ejecutar programa
             ProgramCall program = new ProgramCall(as400, qualifiedProgram, parameters);
             boolean success = program.run();
@@ -177,6 +180,12 @@ public class Per001As400Adapter implements Per001ServicePort {
 
         LOGGER.debug("INHEADER construido (215 bytes): '{}'", inHeader);
         LOGGER.debug("INBODY construido (50 bytes): '{}'", inBody);
+        
+        // Log detallado de cada campo INHEADER
+        logInHeaderDetails(command);
+        
+        // *** NUEVO: Capturar valores String ANTES de conversión a EBCDIC ***
+        logValoresAntesDeConversion(command, inHeader, inBody);
 
         // Convertidores de texto AS/400 (EBCDIC)
         AS400Text text215 = new AS400Text(215, as400.getCcsid());
@@ -194,6 +203,115 @@ public class Per001As400Adapter implements Per001ServicePort {
                 new ProgramParameter(264),                  // P3: OUTHEADER (264 bytes) OUTPUT
                 new ProgramParameter(54)                    // P4: OUTBODY (54 bytes) OUTPUT
         };
+    }
+    
+    /**
+     * Loguea los 4 parámetros justo antes de ejecutar el CL PER001P.
+     */
+    private void logParametersBeforeCall(ProgramParameter[] parameters) {
+        LOGGER.info("╔════════════════════════════════════════════════════════════════");
+        LOGGER.info("║ PARÁMETROS ENVIADOS AL CL PER001P (Justo antes de program.run)");
+        LOGGER.info("╠════════════════════════════════════════════════════════════════");
+        
+        for (int i = 0; i < parameters.length; i++) {
+            ProgramParameter param = parameters[i];
+            byte[] inputData = param.getInputData();
+            
+            if (inputData != null) {
+                // INPUT parameter
+                String content = new String(inputData);
+                LOGGER.info("║ P{} (INPUT): {} bytes", (i + 1), inputData.length);
+                LOGGER.info("║   Contenido: '{}'", content);
+                LOGGER.info("║   Hex: {}", bytesToHex(inputData));
+            } else {
+                // OUTPUT parameter
+                LOGGER.info("║ P{} (OUTPUT): {} bytes (buffer vacío esperando respuesta)", (i + 1), param.getOutputDataLength());
+            }
+            LOGGER.info("╠════════════════════════════════════════════════════════════════");
+        }
+        
+        LOGGER.info("║ TOTAL: {} parámetros preparados para enviar", parameters.length);
+        LOGGER.info("╚════════════════════════════════════════════════════════════════");
+    }
+    
+    /**
+     * Convierte bytes a representación hexadecimal.
+     */
+    private String bytesToHex(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        int maxBytes = Math.min(bytes.length, 50); // Limitar a primeros 50 bytes para no saturar el log
+        for (int i = 0; i < maxBytes; i++) {
+            sb.append(String.format("%02X ", bytes[i]));
+        }
+        if (bytes.length > maxBytes) {
+            sb.append("... (").append(bytes.length - maxBytes).append(" bytes más)");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Loguea los valores String ANTES de la conversión a bytes EBCDIC.
+     */
+    private void logValoresAntesDeConversion(TransferCommand command, String inHeaderStr, String inBodyStr) {
+        LOGGER.info("╔═══════════════════════════════════════════════════════════════════════════════");
+        LOGGER.info("║ VALORES STRING ANTES DE CONVERSIÓN A EBCDIC");
+        LOGGER.info("╠═══════════════════════════════════════════════════════════════════════════════");
+        LOGGER.info("║");
+        LOGGER.info("║ ┌─ INHEADER (215 bytes) ────────────────────────────────────────────────────");
+        LOGGER.info("║ │");
+        LOGGER.info("║ │  SERVICIO (20):      '{}'", padRight(nvl(command.getNombreOperacion(), "SERVICIO_TEST"), 20));
+        LOGGER.info("║ │  IDTRX (36):         '{}'", padRight(nvl(command.getIdTransaccion(), ""), 36));
+        LOGGER.info("║ │  IDSESION (36):      '{}'", padRight(nvl(command.getIdSesion(), ""), 36));
+        LOGGER.info("║ │  FECASIS (30):       '{}'", padRight(OffsetDateTime.now().toString(), 30));
+        LOGGER.info("║ │  CANAL (10):         '{}'", padRight(String.valueOf(command.getCanal() != null ? command.getCanal() : 0), 10));
+        LOGGER.info("║ │  PAIS (3):           '{}'", padRight(nvl(command.getCodPais(), "PA"), 3));
+        LOGGER.info("║ │  USUARIO1 (20):      '{}'", padRight(nvl(command.getUsuario(), "SYSTEM"), 20));
+        LOGGER.info("║ │  IDIOMA (10):        '{}'", padRight(nvl(command.getCodIdioma(), "ES"), 10));
+        LOGGER.info("║ │  IPCLIENTE (50):     '{}'", padRight(nvl(command.getValOrigen(), "0.0.0.0"), 50));
+        LOGGER.info("║ │");
+        LOGGER.info("║ │  String completo (215 chars): '{}'", inHeaderStr);
+        LOGGER.info("║ │  Longitud real: {} caracteres", inHeaderStr.length());
+        LOGGER.info("║ └───────────────────────────────────────────────────────────────────────────");
+        LOGGER.info("║");
+        LOGGER.info("║ ┌─ INBODY (50 bytes) ──────────────────────────────────────────────────────");
+        LOGGER.info("║ │");
+        LOGGER.info("║ │  ITipId (4):         '{}'", padRight(nvl(command.getCodTipoIdentificacion(), ""), 4));
+        LOGGER.info("║ │  INumId (30):        '{}'", padRight(nvl(command.getValNumeroIdentificacion(), ""), 30));
+        LOGGER.info("║ │  ITippRo (4):        '{}'", padRight(nvl(command.getCodTipoProducto(), ""), 4));
+        LOGGER.info("║ │  ICuenTa (12):       '{}'", padRight(nvl(command.getValNumeroProducto(), ""), 12));
+        LOGGER.info("║ │");
+        LOGGER.info("║ │  String completo (50 chars): '{}'", inBodyStr);
+        LOGGER.info("║ │  Longitud real: {} caracteres", inBodyStr.length());
+        LOGGER.info("║ └───────────────────────────────────────────────────────────────────────────");
+        LOGGER.info("║");
+        LOGGER.info("║ NOTA: Estos valores String serán convertidos a bytes EBCDIC (CCSID 37)");
+        LOGGER.info("║       antes de ser enviados al programa CL PER001P en el AS/400");
+        LOGGER.info("╚═══════════════════════════════════════════════════════════════════════════════");
+    }
+    
+    /**
+     * Loguea los detalles de cada campo del INHEADER para depuración.
+     */
+    private void logInHeaderDetails(TransferCommand command) {
+        LOGGER.info("=== INHEADER - Detalle de campos enviados al CL ===");
+        LOGGER.info("  SERVICIO (20):    '{}'", padRight(nvl(command.getNombreOperacion(), "SERVICIO_TEST"), 20));
+        LOGGER.info("  IDTRX (36):       '{}'", padRight(nvl(command.getIdTransaccion(), ""), 36));
+        LOGGER.info("  IDSESION (36):    '{}'", padRight(nvl(command.getIdSesion(), ""), 36));
+        LOGGER.info("  FECASIS (30):     '{}'", padRight(OffsetDateTime.now().toString(), 30));
+        LOGGER.info("  CANAL (10):       '{}'", padRight(String.valueOf(command.getCanal() != null ? command.getCanal() : 0), 10));
+        LOGGER.info("  PAIS (3):         '{}'", padRight(nvl(command.getCodPais(), "PA"), 3));
+        LOGGER.info("  USUARIO1 (20):    '{}'", padRight(nvl(command.getUsuario(), "SYSTEM"), 20));
+        LOGGER.info("  IDIOMA (10):      '{}'", padRight(nvl(command.getCodIdioma(), "ES"), 10));
+        LOGGER.info("  IPCLIENTE (50):   '{}'", padRight(nvl(command.getValOrigen(), "0.0.0.0"), 50));
+        LOGGER.info("=== INBODY - Detalle de campos enviados al CL ===");
+        LOGGER.info("  ITipId (4):       '{}'", padRight(nvl(command.getCodTipoIdentificacion(), ""), 4));
+        LOGGER.info("  INumId (30):      '{}'", padRight(nvl(command.getValNumeroIdentificacion(), ""), 30));
+        LOGGER.info("  ITippRo (4):      '{}'", padRight(nvl(command.getCodTipoProducto(), ""), 4));
+        LOGGER.info("  ICuenTa (12):     '{}'", padRight(nvl(command.getValNumeroProducto(), ""), 12));
+        LOGGER.info("===================================================");
     }
     
     /**
