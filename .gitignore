@@ -345,3 +345,47 @@ CHEATSHEET_PERSONAL.md
 .pnpm-store/
 *.docx
 *.pdf
+
+###############################################################################
+# ARCHIVOS DE DOCUMENTACIÓN Y MARKDOWN (temporal)
+###############################################################################
+*.md
+!README.md
+!CONTRIBUTING.md
+!CHANGELOG.md
+!LICENSE.md
+
+###############################################################################
+# ARCHIVOS DE TEST Y SCRIPTS DE PRUEBA
+###############################################################################
+test-*.ps1
+test-*.bat
+test-*.sh
+test-request.json
+test-response.json
+*-test.json
+*.test.json
+test_*.py
+test_*.js
+*_test.go
+remove-*.ps1
+clean-*.ps1
+temp-*.ps1
+
+###############################################################################
+# ARCHIVOS BASURA Y TEMPORALES
+###############################################################################
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+.directory
